@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proton VPN - Gaming Mode Prototype</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #1c1c1e;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .app {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Left Sidebar */
+        .sidebar {
+            width: 370px;
+            background: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #2a2a2a;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .search-box {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #888;
+            margin-bottom: 20px;
+        }
+
+        .nav-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-item:hover {
+            background: #2a2a2a;
+        }
+
+        .nav-item.active {
+            background: #2a2a2a;
+            border-left: 3px solid #6d4aff;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 20px;
+            padding: 16px 20px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .tab {
+            color: #888;
+            cursor: pointer;
+            padding-bottom: 8px;
+        }
+
+        .tab.active {
+            color: #fff;
+            border-bottom: 2px solid #6d4aff;
+        }
+
+        .countries-header {
+            padding: 16px 20px;
+            color: #888;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sort-dropdown {
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .countries-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .country-item {
+            padding: 14px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .country-item:hover {
+            background: #2a2a2a;
+        }
+
+        .country-flag {
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            background: #3a3a3a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .country-info {
+            flex: 1;
+        }
+
+        .country-name {
+            font-size: 14px;
+        }
+
+        .country-ping {
+            font-size: 13px;
+            font-weight: 600;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        .ping-green { color: #4ade80; }
+        .ping-yellow { color: #fbbf24; }
+        .ping-red { color: #f87171; }
+
+        .country-expand {
+            color: #888;
+            font-size: 12px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            background: linear-gradient(135deg, #2d5f5d 0%, #1e3a3a 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .connection-status {
+            text-align: center;
+            z-index: 1;
+        }
+
+        .status-icon {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #4a4a4a;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+        }
+
+        .status-icon.connected {
+            background: #10b981;
+        }
+
+        .status-text {
+            font-size: 32px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .status-server {
+            font-size: 18px;
+            color: #aaa;
+            margin-bottom: 24px;
+        }
+
+        .connect-button {
+            background: #6d4aff;
+            color: #fff;
+            border: none;
+            padding: 16px 48px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .connect-button:hover {
+            background: #5a3dd9;
+        }
+
+        .disconnect-button {
+            background: transparent;
+            color: #fff;
+            border: 2px solid #fff;
+            padding: 14px 48px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        /* Bottom Stats */
+        .bottom-stats {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 16px 24px;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: auto auto auto;
+            gap: 24px;
+            font-size: 13px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 11px;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .stat-load-bar {
+            display: inline-block;
+            width: 60px;
+            height: 4px;
+            background: #3a3a3a;
+            border-radius: 2px;
+            margin-left: 8px;
+            position: relative;
+            vertical-align: middle;
+        }
+
+        .stat-load-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: #4ade80;
+            border-radius: 2px;
+        }
+
+        /* Latency Tooltip */
+        .latency-tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(42, 42, 42, 0.95);
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 12px 16px;
+            width: 280px;
+            display: none;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .stat-item:hover .latency-tooltip {
+            display: block;
+        }
+
+        .tooltip-title {
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tooltip-ping-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #4ade80;
+            margin-bottom: 8px;
+        }
+
+        .tooltip-text {
+            font-size: 11px;
+            color: #aaa;
+            line-height: 1.5;
+        }
+
+        /* Right Features Panel */
+        .features-panel {
+            width: 200px;
+            background: #1a1a1a;
+            border-left: 1px solid #2a2a2a;
+            padding: 20px;
+        }
+
+        .feature-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 0;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 0.2s;
+            position: relative;
+        }
+
+        .feature-item:hover {
+            background: #2a2a2a;
+        }
+
+        .feature-item.active {
+            background: #2d2d4a;
+            border: 1px solid #6d4aff;
+        }
+
+        .feature-icon {
+            font-size: 32px;
+        }
+
+        .feature-label {
+            font-size: 13px;
+            color: #ddd;
+        }
+
+        .feature-badge {
+            font-size: 11px;
+            color: #888;
+        }
+
+        /* Gaming Mode Flyout */
+        .gaming-flyout {
+            position: absolute;
+            right: calc(100% - 4px); /* Slight overlap to prevent gap */
+            top: 0;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 16px;
+            padding-right: 20px; /* Extra padding on right to compensate for overlap */
+            width: 220px;
+            display: none;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .feature-item:hover .gaming-flyout,
+        .gaming-flyout:hover {
+            display: block;
+        }
+
+        .flyout-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .flyout-title {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .flyout-description {
+            font-size: 11px;
+            color: #aaa;
+            line-height: 1.4;
+        }
+
+        .toggle-switch {
+            width: 44px;
+            height: 24px;
+            background: #4a4a4a;
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle-switch.on {
+            background: #6d4aff;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: left 0.2s;
+        }
+
+        .toggle-switch.on::after {
+            left: 22px;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.visible {
+            display: flex;
+        }
+
+        .modal {
+            background: #1e1e1e;
+            border-radius: 12px;
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #2a2a2a;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .modal-back {
+            width: 32px;
+            height: 32px;
+            background: #2a2a2a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-apply {
+            background: #6d4aff;
+            color: #fff;
+            border: none;
+            padding: 8px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            background: #2a2a2a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+            color: #fff;
+            font-size: 18px;
+        }
+
+        .modal-content {
+            padding: 24px;
+        }
+
+        .modal-main-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #2a2a2a;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .modal-main-info {
+            flex: 1;
+            padding-right: 16px;
+        }
+
+        .modal-main-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .modal-main-description {
+            font-size: 13px;
+            color: #aaa;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+
+        .modal-main-link {
+            font-size: 12px;
+            color: #6d4aff;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .modal-main-link:hover {
+            text-decoration: underline;
+        }
+
+        .setting-section {
+            margin-bottom: 24px;
+            padding: 16px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            transition: opacity 0.2s;
+        }
+
+        .setting-section.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .setting-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .setting-label {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .setting-description {
+            font-size: 13px;
+            color: #aaa;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .setting-toggle-option {
+            font-size: 13px;
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .section-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin: 24px 0 12px 0;
+            color: #ddd;
+        }
+
+        .tip-banner {
+            background: #2a3a4a;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            border-left: 3px solid #60a5fa;
+        }
+
+        .tip-banner-text {
+            font-size: 12px;
+            color: #ddd;
+            line-height: 1.5;
+        }
+
+        .restore-defaults-btn {
+            width: 100%;
+            background: #2a2a2a;
+            color: #ddd;
+            border: 1px solid #3a3a3a;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 16px;
+            transition: background 0.2s;
+        }
+
+        .restore-defaults-btn:hover {
+            background: #3a3a3a;
+        }
+
+        .info-card {
+            background: #2a3a4a;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            border-left: 3px solid #6d4aff;
+        }
+
+        .info-card-title {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .info-card-text {
+            font-size: 12px;
+            color: #aaa;
+            line-height: 1.5;
+        }
+
+        .link-card {
+            background: #2a2a2a;
+            padding: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .link-card:hover {
+            background: #3a3a3a;
+        }
+
+        .link-card-header {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .link-card-description {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 8px;
+        }
+
+        .link-card-examples {
+            font-size: 11px;
+            color: #888;
+            line-height: 1.6;
+        }
+
+        .link-card-cta {
+            margin-top: 8px;
+            color: #6d4aff;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .city-item {
+            padding: 10px 20px 10px 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #2a2a2a;
+            background: #1e1e1e;
+        }
+
+        .city-item:hover {
+            background: #2a2a2a;
+        }
+
+        .server-item {
+            padding: 8px 20px 8px 60px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #2a2a2a;
+            background: #181818;
+            font-size: 13px;
+        }
+
+        .server-item:hover {
+            background: #2a2a2a;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="search-box">Browse from...</div>
+                <div style="margin-top: 16px;">
+                    <div class="nav-item">
+                        <span>🕐 Recents</span>
+                    </div>
+                    <div class="nav-item active">
+                        <span>🌍 Countries</span>
+                    </div>
+                    <div class="nav-item">
+                        <span>📋 Profiles</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <div class="tab active">All</div>
+                <div class="tab">Secure Core</div>
+                <div class="tab">P2P</div>
+                <div class="tab">Tor</div>
+            </div>
+
+            <div class="countries-header">
+                <span>Countries (<span id="country-count">24</span>)</span>
+                <select class="sort-dropdown" id="sort-select">
+                    <!-- Options populated by JavaScript based on Gaming Mode state -->
+                </select>
+            </div>
+
+            <div class="countries-list" id="countries-list">
+                <!-- Countries will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="connection-status">
+                <div class="status-icon" id="status-icon">🔒</div>
+                <div class="status-text" id="status-text">Not connected</div>
+                <div class="status-server" id="status-server"></div>
+                <button class="connect-button" id="connect-button">Quick Connect</button>
+            </div>
+
+            <!-- Bottom Stats (only visible when connected) -->
+            <div class="bottom-stats" id="bottom-stats" style="display: none;">
+                <div class="stat-item">
+                    <div class="stat-label">VPN IP</div>
+                    <div class="stat-value" id="stat-vpn-ip">130.195.250.101</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Server load</div>
+                    <div class="stat-value">
+                        <span id="stat-server-load">39%</span>
+                        <span class="stat-load-bar">
+                            <span class="stat-load-fill" id="stat-load-fill" style="width: 39%;"></span>
+                        </span>
+                    </div>
+                </div>
+                <div class="stat-item" id="stat-latency-item" style="display: none; position: relative;">
+                    <div class="stat-label">VPN latency</div>
+                    <div class="stat-value" id="stat-vpn-latency">18ms</div>
+                    <div class="latency-tooltip">
+                        <div class="tooltip-title">VPN Latency</div>
+                        <div class="tooltip-ping-value" id="tooltip-ping-value">18ms</div>
+                        <div class="tooltip-text">
+                            Latency added by VPN. Your in-game ping = this + distance to game server.
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Protocol</div>
+                    <div class="stat-value" id="stat-protocol">WireGuard (TCP)</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Total traffic</div>
+                    <div class="stat-value" id="stat-total-traffic">14 MB</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Features Panel -->
+        <div class="features-panel">
+            <div class="feature-item" id="gaming-mode-feature">
+                <div class="feature-icon">🎮</div>
+                <div class="feature-label">Gaming Mode</div>
+
+                <!-- Flyout on hover -->
+                <div class="gaming-flyout" id="gaming-flyout">
+                    <div class="flyout-header">
+                        <span class="flyout-title">Gaming Mode</span>
+                        <div class="toggle-switch" id="gaming-toggle-flyout"></div>
+                    </div>
+                    <div class="flyout-description">Optimize settings for lowest latency</div>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">🛡️</div>
+                <div class="feature-label">NetShield</div>
+                <div class="feature-badge">0</div>
+            </div>
+
+            <div class="feature-item" id="killswitch-feature">
+                <div class="feature-icon">🔐</div>
+                <div class="feature-label">Kill switch</div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">📡</div>
+                <div class="feature-label">Port forwarding</div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">🔀</div>
+                <div class="feature-label">Split tunneling</div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">⚙️</div>
+                <div class="feature-label">Settings</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gaming Mode Settings Modal -->
+    <div class="modal-overlay" id="gaming-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title-section">
+                    <div class="modal-back" id="modal-back">←</div>
+                    <div>
+                        <div class="modal-title">🎮 Gaming Mode</div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="modal-apply" id="modal-apply">Apply</button>
+                    <button class="modal-close" id="modal-close">✕</button>
+                </div>
+            </div>
+
+            <!-- Main Gaming Mode Toggle Header -->
+            <div class="modal-main-header">
+                <div class="modal-main-info">
+                    <div class="modal-main-title">Gaming Mode</div>
+                    <div class="modal-main-description">
+                        Optimize settings for lowest latency and smoothest gameplay. Automatically applies WireGuard protocol, enables VPN Accelerator, and disables NetShield.
+                    </div>
+                    <a class="modal-main-link">Learn more about Gaming Mode →</a>
+                </div>
+                <div class="toggle-switch on" id="gaming-toggle-modal"></div>
+            </div>
+
+            <div class="modal-content" id="modal-content-settings">
+                <!-- WiFi Tip Banner -->
+                <div class="tip-banner">
+                    <div class="tip-banner-text">💡 Pro tip: Connect via Ethernet for 10-50ms lower latency.</div>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-card-title">🛡️ Your IP is hidden. Protected from DDoS attacks and harassment.</div>
+                </div>
+
+                <!-- Windows Optimizations Section -->
+                <div class="section-title">Windows Optimizations</div>
+
+                <div class="setting-section">
+                    <div class="setting-header">
+                        <span class="setting-label">Disable Xbox Game Bar</span>
+                        <div class="toggle-switch on" id="game-dvr-toggle"></div>
+                    </div>
+                    <div class="setting-description">
+                        Game Bar records gameplay in the background, which can reduce FPS by 10-30%. Requires one-time admin permission.
+                    </div>
+                </div>
+
+                <div class="setting-section">
+                    <div class="setting-header">
+                        <span class="setting-label">High performance power plan</span>
+                        <div class="toggle-switch on" id="power-plan-toggle"></div>
+                    </div>
+                    <div class="setting-description">
+                        Prevents CPU throttling during gameplay. Note: Reduces battery life on laptops.
+                    </div>
+                </div>
+
+                <!-- Gaming-specific Sub-settings Section -->
+                <div class="section-title">Gaming-specific Settings</div>
+
+                <div class="setting-section">
+                    <div class="setting-header">
+                        <span class="setting-label">Always reconnect to same server</span>
+                        <div class="toggle-switch on" id="reconnect-toggle"></div>
+                    </div>
+                    <div class="setting-description">
+                        Maintains stable IP address and routing. Important for P2P games and avoiding IP-based kicks.
+                    </div>
+                </div>
+
+                <div class="setting-section">
+                    <div class="setting-header">
+                        <span class="setting-label">Show VPN latency on homescreen</span>
+                        <div class="toggle-switch on" id="latency-monitor-toggle"></div>
+                    </div>
+                    <div class="setting-description">
+                        Display real-time VPN latency while connected. Updates every 5 seconds to help you monitor connection quality.
+                    </div>
+                </div>
+
+                <div class="link-card">
+                    <div class="link-card-header">Kill Switch</div>
+                    <div class="link-card-description">Control what happens if VPN disconnects</div>
+                    <div class="link-card-examples">
+                        Current state: <strong id="ks-state-display">Disabled</strong><br>
+                        We recommend disabling Kill Switch for gaming to prevent mid-match disconnects.
+                    </div>
+                    <div class="link-card-cta">Configure Kill Switch →</div>
+                </div>
+
+                <div class="link-card">
+                    <div class="link-card-header">Advanced: Split Tunneling</div>
+                    <div class="link-card-description">Route only specific apps through VPN</div>
+                    <div class="link-card-examples">
+                        • Keep only your game in the VPN tunnel for best performance<br>
+                        • Exclude game launchers (Steam, Epic) if they refuse VPN connections
+                    </div>
+                    <div class="link-card-cta">Configure Split Tunneling →</div>
+                </div>
+
+                <button class="restore-defaults-btn" id="restore-defaults-btn">Restore Default Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let state = {
+            gamingMode: false,
+            connected: true,
+            selectedCountry: null,
+            killSwitch: false,
+            reconnect: true,
+            latencyMonitor: true,
+            currentSort: 'alphabetical',
+            pingsLoaded: {}
+        };
+
+        // Country data (20 countries with varied distances)
+        const countries = [
+            { name: 'Netherlands', flag: '🇳🇱', ping: 18, cities: ['Amsterdam', 'Rotterdam'] },
+            { name: 'Belgium', flag: '🇧🇪', ping: 22, cities: ['Brussels'] },
+            { name: 'Germany', flag: '🇩🇪', ping: 24, cities: ['Frankfurt', 'Berlin'] },
+            { name: 'France', flag: '🇫🇷', ping: 28, cities: ['Paris', 'Marseille'] },
+            { name: 'United Kingdom', flag: '🇬🇧', ping: 32, cities: ['London', 'Manchester'] },
+            { name: 'Switzerland', flag: '🇨🇭', ping: 35, cities: ['Zurich'] },
+            { name: 'Austria', flag: '🇦🇹', ping: 38, cities: ['Vienna'] },
+            { name: 'Denmark', flag: '🇩🇰', ping: 42, cities: ['Copenhagen'] },
+            { name: 'Sweden', flag: '🇸🇪', ping: 45, cities: ['Stockholm'] },
+            { name: 'Czech Republic', flag: '🇨🇿', ping: 48, cities: ['Prague'] },
+            { name: 'Spain', flag: '🇪🇸', ping: 52, cities: ['Barcelona', 'Madrid'] },
+            { name: 'Italy', flag: '🇮🇹', ping: 56, cities: ['Milan', 'Rome'] },
+            { name: 'Poland', flag: '🇵🇱', ping: 62, cities: ['Warsaw'] },
+            { name: 'Norway', flag: '🇳🇴', ping: 68, cities: ['Oslo'] },
+            { name: 'Romania', flag: '🇷🇴', ping: 75, cities: ['Bucharest'] },
+            { name: 'Iceland', flag: '🇮🇸', ping: 95, cities: ['Reykjavik'] },
+            { name: 'United States (East)', flag: '🇺🇸', ping: 125, cities: ['New York', 'Miami'] },
+            { name: 'Israel', flag: '🇮🇱', ping: 142, cities: ['Tel Aviv'] },
+            { name: 'United States (West)', flag: '🇺🇸', ping: 165, cities: ['Los Angeles', 'Seattle'] },
+            { name: 'Japan', flag: '🇯🇵', ping: 245, cities: ['Tokyo', 'Osaka'] },
+            { name: 'Singapore', flag: '🇸🇬', ping: 268, cities: ['Singapore'] },
+            { name: 'Australia', flag: '🇦🇺', ping: 305, cities: ['Sydney', 'Melbourne'] },
+            { name: 'Brazil', flag: '🇧🇷', ping: 215, cities: ['São Paulo'] },
+            { name: 'South Africa', flag: '🇿🇦', ping: 198, cities: ['Johannesburg'] },
+        ];
+
+        // DOM Elements
+        const gamingModeFeature = document.getElementById('gaming-mode-feature');
+        const gamingToggleFlyout = document.getElementById('gaming-toggle-flyout');
+        const gamingToggleModal = document.getElementById('gaming-toggle-modal');
+        const gamingModal = document.getElementById('gaming-modal');
+        const modalBack = document.getElementById('modal-back');
+        const modalClose = document.getElementById('modal-close');
+        const modalApply = document.getElementById('modal-apply');
+        const modalContentSettings = document.getElementById('modal-content-settings');
+        const restoreDefaultsBtn = document.getElementById('restore-defaults-btn');
+        const killswitchFeature = document.getElementById('killswitch-feature');
+        const ksStateDisplay = document.getElementById('ks-state-display');
+        const connectButton = document.getElementById('connect-button');
+        const statusIcon = document.getElementById('status-icon');
+        const statusText = document.getElementById('status-text');
+        const statusServer = document.getElementById('status-server');
+        const countriesList = document.getElementById('countries-list');
+        const bottomStats = document.getElementById('bottom-stats');
+        const statLatencyItem = document.getElementById('stat-latency-item');
+        const statVpnLatency = document.getElementById('stat-vpn-latency');
+        const sortSelect = document.getElementById('sort-select');
+        const reconnectToggle = document.getElementById('reconnect-toggle');
+        const latencyMonitorToggle = document.getElementById('latency-monitor-toggle');
+        const gameDvrToggle = document.getElementById('game-dvr-toggle');
+        const powerPlanToggle = document.getElementById('power-plan-toggle');
+
+        // Click Gaming Mode feature → opens modal
+        gamingModeFeature.addEventListener('click', (e) => {
+            // Don't open modal if clicking on the flyout toggle
+            if (e.target.closest('#gaming-toggle-flyout')) {
+                return;
+            }
+            openGamingModal();
+        });
+
+        // Flyout toggle (stops propagation to prevent modal opening)
+        gamingToggleFlyout.addEventListener('click', (e) => {
+            e.stopPropagation();
+            gamingToggleFlyout.classList.toggle('on');
+            state.gamingMode = gamingToggleFlyout.classList.contains('on');
+            updateGamingModeState();
+        });
+
+        // Restore defaults button
+        restoreDefaultsBtn.addEventListener('click', () => {
+            restoreDefaultSettings();
+        });
+
+        function restoreDefaultSettings() {
+            // Set all toggles to default states
+            reconnectToggle.classList.add('on');      // Default: ON
+            latencyMonitorToggle.classList.add('on'); // Default: ON
+            gameDvrToggle.classList.add('on');        // Default: ON
+            powerPlanToggle.classList.add('on');      // Default: ON
+        }
+
+        // Kill Switch feature click handler - just for toggling the main Kill Switch
+        killswitchFeature.addEventListener('click', () => {
+            state.killSwitch = !state.killSwitch;
+            updateKillSwitchUI();
+        });
+
+        function updateKillSwitchUI() {
+            if (state.killSwitch) {
+                killswitchFeature.classList.add('active');
+                ksStateDisplay.textContent = 'Enabled';
+            } else {
+                killswitchFeature.classList.remove('active');
+                ksStateDisplay.textContent = 'Disabled';
+            }
+        }
+
+        function openGamingModal() {
+            // Sync modal toggle with current state
+            if (state.gamingMode) {
+                gamingToggleModal.classList.add('on');
+                enableModalSettings();
+            } else {
+                gamingToggleModal.classList.remove('on');
+                disableModalSettings();
+            }
+
+            // Update Kill Switch state display
+            updateKillSwitchUI();
+
+            gamingModal.classList.add('visible');
+        }
+
+        // Modal main toggle
+        gamingToggleModal.addEventListener('click', () => {
+            gamingToggleModal.classList.toggle('on');
+            if (gamingToggleModal.classList.contains('on')) {
+                enableModalSettings();
+            } else {
+                disableModalSettings();
+            }
+        });
+
+        function enableModalSettings() {
+            const settingSections = modalContentSettings.querySelectorAll('.setting-section');
+            settingSections.forEach(section => section.classList.remove('disabled'));
+        }
+
+        function disableModalSettings() {
+            const settingSections = modalContentSettings.querySelectorAll('.setting-section');
+            settingSections.forEach(section => section.classList.add('disabled'));
+        }
+
+        // Close modal
+        modalBack.addEventListener('click', closeModal);
+        modalClose.addEventListener('click', closeModal);
+        modalApply.addEventListener('click', () => {
+            applyGamingMode();
+            closeModal();
+        });
+
+        function closeModal() {
+            gamingModal.classList.remove('visible');
+        }
+
+        function applyGamingMode() {
+            // Get state from modal toggle
+            state.gamingMode = gamingToggleModal.classList.contains('on');
+            state.reconnect = reconnectToggle.classList.contains('on');
+            state.latencyMonitor = latencyMonitorToggle.classList.contains('on');
+
+            // Sync flyout toggle
+            if (state.gamingMode) {
+                gamingToggleFlyout.classList.add('on');
+            } else {
+                gamingToggleFlyout.classList.remove('on');
+            }
+
+            updateGamingModeState();
+        }
+
+        function updateSortOptions() {
+            sortSelect.innerHTML = '';
+
+            if (state.gamingMode) {
+                // Gaming Mode: Show Alphabetical and Recommended (latency-based)
+                sortSelect.innerHTML = `
+                    <option value="alphabetical">Alphabetical</option>
+                    <option value="recommended">Recommended</option>
+                `;
+            } else {
+                // Normal Mode: Show Alphabetical and Server load
+                sortSelect.innerHTML = `
+                    <option value="alphabetical">Alphabetical</option>
+                    <option value="load">Server load</option>
+                `;
+            }
+
+            sortSelect.value = state.currentSort;
+        }
+
+        function updateGamingModeState() {
+            if (state.gamingMode) {
+                // Add active background to Gaming Mode button
+                gamingModeFeature.classList.add('active');
+
+                // Update button text based on connection state
+                if (state.connected) {
+                    connectButton.textContent = 'Disconnect';
+                } else {
+                    connectButton.textContent = 'Connect with lowest Ping';
+                }
+
+                // Change sort to recommended
+                state.currentSort = 'recommended';
+                updateSortOptions();
+
+                // Reset pings loaded state
+                state.pingsLoaded = {};
+
+                // Start progressive ping loading
+                loadPingsProgressively();
+
+                // Update bottom stats to show/hide latency
+                updateBottomStats();
+            } else {
+                // Remove active background from Gaming Mode button
+                gamingModeFeature.classList.remove('active');
+
+                // Revert to normal mode
+                if (state.connected) {
+                    connectButton.textContent = 'Disconnect';
+                } else {
+                    connectButton.textContent = 'Quick Connect';
+                }
+
+                // Change sort back to alphabetical
+                state.currentSort = 'alphabetical';
+                updateSortOptions();
+
+                // Clear pings
+                state.pingsLoaded = {};
+                renderCountries();
+
+                // Hide latency in bottom stats
+                statLatencyItem.style.display = 'none';
+            }
+        }
+
+        function loadPingsProgressively() {
+            // Clear any existing render
+            renderCountries();
+
+            // Load pings one by one with delay
+            countries.forEach((country, index) => {
+                setTimeout(() => {
+                    state.pingsLoaded[country.name] = true;
+                    renderCountries();
+                }, index * 80); // 80ms delay between each ping
+            });
+        }
+
+        // Toggle switches in modal
+        reconnectToggle.addEventListener('click', () => {
+            reconnectToggle.classList.toggle('on');
+        });
+
+        latencyMonitorToggle.addEventListener('click', () => {
+            latencyMonitorToggle.classList.toggle('on');
+        });
+
+        gameDvrToggle.addEventListener('click', () => {
+            gameDvrToggle.classList.toggle('on');
+        });
+
+        powerPlanToggle.addEventListener('click', () => {
+            powerPlanToggle.classList.toggle('on');
+        });
+
+        // Sort change
+        sortSelect.addEventListener('change', (e) => {
+            state.currentSort = e.target.value;
+            renderCountries();
+        });
+
+        function updateBottomStats() {
+            if (state.connected && state.gamingMode && state.latencyMonitor) {
+                statLatencyItem.style.display = 'flex';
+                const pingValue = state.selectedCountry.ping + 'ms';
+                statVpnLatency.textContent = pingValue;
+                document.getElementById('tooltip-ping-value').textContent = pingValue;
+            } else {
+                statLatencyItem.style.display = 'none';
+            }
+        }
+
+        // Connect button
+        connectButton.addEventListener('click', () => {
+            if (state.connected) {
+                // Disconnect
+                state.connected = false;
+                state.selectedCountry = null;
+                statusIcon.textContent = '🔒';
+                statusIcon.classList.remove('connected');
+                statusText.textContent = 'Not connected';
+                statusServer.textContent = '';
+                connectButton.textContent = state.gamingMode ? 'Connect with lowest Ping' : 'Quick Connect';
+                connectButton.className = 'connect-button';
+                bottomStats.style.display = 'none';
+            } else {
+                // Connect
+                state.connected = true;
+
+                if (state.gamingMode && state.currentSort === 'recommended') {
+                    // Connect to lowest ping
+                    const sorted = [...countries].filter(c => c.ping !== null).sort((a, b) => a.ping - b.ping);
+                    state.selectedCountry = sorted[0];
+                } else {
+                    // Connect to first country
+                    state.selectedCountry = countries[0];
+                }
+
+                statusIcon.textContent = '✓';
+                statusIcon.classList.add('connected');
+                statusText.textContent = 'Connected';
+                statusServer.textContent = `${state.selectedCountry.name} - ${state.selectedCountry.cities ? state.selectedCountry.cities[0] : 'Server'} #12`;
+                connectButton.textContent = 'Disconnect';
+                connectButton.className = 'disconnect-button';
+
+                // Show bottom stats
+                bottomStats.style.display = 'grid';
+                updateBottomStats();
+            }
+        });
+
+        // Render countries
+        function renderCountries() {
+            let sortedCountries = [...countries];
+
+            if (state.currentSort === 'recommended' && state.gamingMode) {
+                // Sort by ping (nulls at end)
+                sortedCountries = sortedCountries.sort((a, b) => {
+                    if (a.ping === null) return 1;
+                    if (b.ping === null) return -1;
+                    return a.ping - b.ping;
+                });
+            } else if (state.currentSort === 'alphabetical') {
+                sortedCountries = sortedCountries.sort((a, b) => a.name.localeCompare(b.name));
+            }
+
+            countriesList.innerHTML = '';
+
+            sortedCountries.forEach((country, index) => {
+                const item = document.createElement('div');
+                item.className = 'country-item';
+
+                let pingHTML = '';
+                if (state.gamingMode && country.ping !== null) {
+                    // Show ping only if it's been "loaded" or if we're not in loading mode
+                    if (state.pingsLoaded[country.name]) {
+                        const pingClass = country.ping < 40 ? 'ping-green' : (country.ping <= 70 ? 'ping-yellow' : 'ping-red');
+                        pingHTML = `<span class="country-ping ${pingClass}">${country.ping}ms</span>`;
+                    } else if (Object.keys(state.pingsLoaded).length > 0) {
+                        // Show loading spinner only if we've started loading
+                        pingHTML = `<span class="country-ping" style="color: #666;">...</span>`;
+                    }
+                }
+
+                item.innerHTML = `
+                    <div class="country-flag">${country.flag}</div>
+                    <div class="country-info">
+                        <div class="country-name">${country.name}</div>
+                    </div>
+                    ${pingHTML}
+                    ${country.cities ? '<span class="country-expand">▼</span>' : ''}
+                `;
+
+                item.addEventListener('click', () => {
+                    if (country.cities) {
+                        toggleCityExpansion(item, country);
+                    } else {
+                        connectToCountry(country);
+                    }
+                });
+
+                countriesList.appendChild(item);
+            });
+        }
+
+        function toggleCityExpansion(countryElement, country) {
+            const existingCities = countryElement.nextElementSibling;
+            if (existingCities && existingCities.classList.contains('city-item')) {
+                // Remove cities
+                while (countryElement.nextElementSibling &&
+                       (countryElement.nextElementSibling.classList.contains('city-item') ||
+                        countryElement.nextElementSibling.classList.contains('server-item'))) {
+                    countryElement.nextElementSibling.remove();
+                }
+                countryElement.querySelector('.country-expand').textContent = '▼';
+            } else {
+                // Add cities
+                countryElement.querySelector('.country-expand').textContent = '▲';
+                country.cities.forEach((city, cityIndex) => {
+                    const cityItem = document.createElement('div');
+                    cityItem.className = 'city-item';
+
+                    // First city gets country's minimum ping, others are slightly higher
+                    const cityPing = state.gamingMode ? (cityIndex === 0 ? country.ping : country.ping + cityIndex * 2) : null;
+                    let cityPingHTML = '';
+                    if (state.gamingMode && cityPing !== null) {
+                        if (state.pingsLoaded[country.name]) {
+                            const pingClass = cityPing < 40 ? 'ping-green' : (cityPing <= 70 ? 'ping-yellow' : 'ping-red');
+                            cityPingHTML = `<span class="country-ping ${pingClass}">${cityPing}ms</span>`;
+                        } else if (Object.keys(state.pingsLoaded).length > 0) {
+                            cityPingHTML = `<span class="country-ping" style="color: #666;">...</span>`;
+                        }
+                    }
+
+                    cityItem.innerHTML = `
+                        <div class="country-info">
+                            <div class="country-name">${city}</div>
+                        </div>
+                        ${cityPingHTML}
+                        <span class="country-expand">▼</span>
+                    `;
+
+                    cityItem.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleServerExpansion(cityItem, country, city, cityPing);
+                    });
+
+                    countryElement.after(cityItem);
+                });
+            }
+        }
+
+        function toggleServerExpansion(cityElement, country, city, basePing) {
+            const existingServers = cityElement.nextElementSibling;
+            if (existingServers && existingServers.classList.contains('server-item')) {
+                // Remove servers
+                while (cityElement.nextElementSibling && cityElement.nextElementSibling.classList.contains('server-item')) {
+                    cityElement.nextElementSibling.remove();
+                }
+                cityElement.querySelector('.country-expand').textContent = '▼';
+            } else {
+                // Add servers
+                cityElement.querySelector('.country-expand').textContent = '▲';
+                for (let i = 0; i < 3; i++) {
+                    const serverItem = document.createElement('div');
+                    serverItem.className = 'server-item';
+
+                    // First server matches city ping, others increment by 1-2ms
+                    const serverPing = state.gamingMode ? basePing + i : null;
+                    let serverPingHTML = '';
+                    if (state.gamingMode && serverPing !== null) {
+                        if (state.pingsLoaded[country.name]) {
+                            const pingClass = serverPing < 40 ? 'ping-green' : (serverPing <= 70 ? 'ping-yellow' : 'ping-red');
+                            serverPingHTML = `<span class="country-ping ${pingClass}">${serverPing}ms</span>`;
+                        } else if (Object.keys(state.pingsLoaded).length > 0) {
+                            serverPingHTML = `<span class="country-ping" style="color: #666;">...</span>`;
+                        }
+                    }
+
+                    serverItem.innerHTML = `
+                        <div class="country-info">
+                            <div class="country-name">${country.flag} ${city} #${i + 1}</div>
+                        </div>
+                        ${serverPingHTML}
+                    `;
+
+                    serverItem.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        connectToServer(country, city, i + 1, serverPing);
+                    });
+
+                    cityElement.after(serverItem);
+                }
+            }
+        }
+
+        function connectToCountry(country) {
+            state.connected = true;
+            state.selectedCountry = country;
+            statusIcon.textContent = '✓';
+            statusIcon.classList.add('connected');
+            statusText.textContent = 'Connected';
+            statusServer.textContent = `${country.name} - Server #1`;
+            connectButton.textContent = 'Disconnect';
+            connectButton.className = 'disconnect-button';
+
+            // Show bottom stats and update latency
+            bottomStats.style.display = 'grid';
+            updateBottomStats();
+        }
+
+        function connectToServer(country, city, serverNum, ping) {
+            state.connected = true;
+            state.selectedCountry = country;
+            statusIcon.textContent = '✓';
+            statusIcon.classList.add('connected');
+            statusText.textContent = 'Connected';
+            statusServer.textContent = `${country.name} - ${city} #${serverNum}`;
+            connectButton.textContent = 'Disconnect';
+            connectButton.className = 'disconnect-button';
+
+            // Show bottom stats and update latency
+            bottomStats.style.display = 'grid';
+            updateBottomStats();
+        }
+
+        // Initial setup - start connected to Netherlands
+        function initializeApp() {
+            state.selectedCountry = countries[0]; // Netherlands - lowest ping
+            state.connected = true;
+
+            // Update UI to show connected state
+            statusIcon.textContent = '✓';
+            statusIcon.classList.add('connected');
+            statusText.textContent = 'Connected';
+            statusServer.textContent = `${state.selectedCountry.name} - ${state.selectedCountry.cities[0]} #12`;
+            connectButton.textContent = 'Disconnect';
+            connectButton.className = 'disconnect-button';
+
+            // Show bottom stats
+            bottomStats.style.display = 'grid';
+
+            // Initialize sort options
+            updateSortOptions();
+
+            // Initial render
+            renderCountries();
+        }
+
+        // Initialize app
+        initializeApp();
+    </script>
+</body>
+</html>
