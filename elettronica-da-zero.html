@@ -1,0 +1,589 @@
+<title>Elettronica da Zero</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: una colonna stretta da telefono. Ogni grandezza ha un colore fisso in tutta la pagina:
+   blu = tensione, ambra = corrente, rosso = resistenza, verde = potenza. */
+:root{
+  --bg:#f2f5f8; --surface:#ffffff; --surface2:#e8eef3; --fg:#13202c; --muted:#556677; --line:#d3dce4;
+  --v:#2459d6; --i:#b45f00; --r:#d02634; --p:#0a8660; --wire:#7a8a98;
+  --font-head:'Space Grotesk',system-ui,sans-serif; --font-body:'Inter',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1319; --surface:#151e27; --surface2:#1d2935; --fg:#e8eef3; --muted:#92a3b2; --line:#2a3947;
+    --v:#6aa6ff; --i:#fbb53a; --r:#ff7a82; --p:#3fd6a0; --wire:#6d7f8f; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1319; --surface:#151e27; --surface2:#1d2935; --fg:#e8eef3; --muted:#92a3b2; --line:#2a3947;
+  --v:#6aa6ff; --i:#fbb53a; --r:#ff7a82; --p:#3fd6a0; --wire:#6d7f8f; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-text-size-adjust:100%}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 72px;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--font-head);margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:2.5rem;letter-spacing:-.02em}
+h2{font-size:1.65rem;letter-spacing:-.01em}
+h3{font-size:1.05rem}
+p{margin:0}
+.lead{color:var(--muted);margin-top:8px;max-width:60ch}
+section{display:flex;flex-direction:column;gap:16px;scroll-margin-top:16px}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:16px;min-width:0}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:3px solid var(--v);outline-offset:2px}
+canvas{width:100%;height:auto;aspect-ratio:4/3;display:block}
+
+/* indice */
+.index{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-inline:-16px;padding-inline:16px;scrollbar-width:none}
+.index::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;font-size:.9rem;font-weight:500;min-height:40px}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+
+/* le quattro grandezze */
+.quad{display:flex;flex-direction:column;gap:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.q{display:grid;grid-template-columns:44px 1fr;gap:12px;padding:14px 16px;align-items:start}
+.q + .q{border-top:1px solid var(--line)}
+.badge{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font:700 1.35rem var(--font-head);color:var(--c);background:color-mix(in srgb,var(--c) 14%,var(--surface))}
+.q b{font-family:var(--font-head);font-size:1.05rem}
+.q .unit{color:var(--c);font-weight:600}
+.q p{color:var(--muted);font-size:.95rem}
+.words{display:flex;flex-direction:column;gap:6px;font-size:.95rem}
+.words dt{font-weight:600}
+.words dd{margin:0 0 6px;color:var(--muted)}
+
+/* controlli */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--surface2);border-radius:12px;padding:4px;gap:4px}
+.seg button{border:0;background:transparent;border-radius:9px;min-height:44px;font-weight:600;font-size:.95rem}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.sl{display:flex;flex-direction:column;gap:2px}
+.sl-top{display:flex;justify-content:space-between;gap:12px;font-size:.95rem;font-weight:500}
+.sl-top b{color:var(--c);font-variant-numeric:tabular-nums;font-family:var(--font-head);font-size:1.05rem}
+input[type=range]{width:100%;height:40px;margin:0;accent-color:var(--c)}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{border-radius:12px;padding:10px;background:color-mix(in srgb,var(--c) 12%,var(--surface));border:1px solid color-mix(in srgb,var(--c) 30%,var(--line));min-width:0}
+.tile small{display:block;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.tile b{display:block;font:700 1.3rem/1.2 var(--font-head);color:var(--c);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.eq{font:600 1.15rem var(--font-head);text-align:center;font-variant-numeric:tabular-nums;line-height:1.7}
+.eq small{display:block;font:500 .8rem var(--font-body);color:var(--muted)}
+.cv{color:var(--v)} .ci{color:var(--i)} .cr{color:var(--r)} .cp{color:var(--p)}
+.say{color:var(--fg);font-size:.97rem;background:var(--surface2);border-radius:10px;padding:12px 14px}
+.hint{font-size:.88rem;color:var(--muted)}
+
+/* serie / parallelo */
+.rows{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:.95rem;font-variant-numeric:tabular-nums}
+.rows span:nth-child(odd){color:var(--muted)}
+.rows span:nth-child(even){text-align:right;font-weight:600}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pair button{border:1px solid var(--line);background:var(--surface);border-radius:10px;min-height:44px;font-weight:500;font-size:.92rem}
+.pair button[aria-pressed="true"]{background:color-mix(in srgb,var(--r) 14%,var(--surface));border-color:var(--r)}
+
+/* potenza */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.big{font:700 1.8rem/1.1 var(--font-head);color:var(--c);font-variant-numeric:tabular-nums}
+.appl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.appl button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 10px;min-height:52px;text-align:left;display:flex;flex-direction:column;font-size:.92rem;line-height:1.25}
+.appl button span{color:var(--muted);font-size:.8rem;font-variant-numeric:tabular-nums}
+.appl button[aria-pressed="true"]{background:color-mix(in srgb,var(--p) 14%,var(--surface));border-color:var(--p)}
+.meter{position:relative;height:22px;border-radius:11px;background:var(--surface2);overflow:hidden}
+.meter i{position:absolute;inset:0 auto 0 0;border-radius:11px;background:var(--p);transition:width .25s,background .25s}
+.meter u{position:absolute;top:0;bottom:0;width:2px;background:var(--fg);left:75%}
+.stat{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
+
+/* LED */
+.ledrow{display:grid;grid-template-columns:84px 1fr;gap:16px;align-items:center}
+.led{width:56px;height:56px;border-radius:50%;margin:14px auto;transition:box-shadow .2s,opacity .2s,background .2s}
+.res{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.res div{background:var(--surface2);border-radius:10px;padding:10px 12px}
+.res small{display:block;color:var(--muted);font-size:.78rem}
+.res b{font:700 1.15rem var(--font-head);font-variant-numeric:tabular-nums}
+
+/* partitore */
+.split{display:flex;height:40px;border-radius:10px;overflow:hidden;font:600 .85rem var(--font-head);font-variant-numeric:tabular-nums}
+.split div{display:grid;place-items:center;white-space:nowrap;min-width:0;overflow:hidden;transition:flex .2s}
+.split .a{background:color-mix(in srgb,var(--r) 20%,var(--surface));color:var(--r)}
+.split .b{background:color-mix(in srgb,var(--v) 20%,var(--surface));color:var(--v)}
+
+/* glossario */
+details{border-top:1px solid var(--line)}
+details:last-of-type{border-bottom:1px solid var(--line)}
+summary{list-style:none;cursor:pointer;padding:16px 28px 16px 0;font-family:var(--font-head);font-weight:500;font-size:1.05rem;position:relative;min-height:48px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:1.4rem;color:var(--muted)}
+details[open] summary::after{content:"–"}
+details > div{padding:0 0 16px;color:var(--muted);display:flex;flex-direction:column;gap:8px}
+table{border-collapse:collapse;width:100%;font-size:.92rem;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 8px 6px 0;border-bottom:1px solid var(--line)}
+.scroll{overflow-x:auto}
+
+/* quiz */
+.opts{display:flex;flex-direction:column;gap:8px}
+.opts button{text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px 14px;min-height:48px}
+.opts button.ok{border-color:var(--p);background:color-mix(in srgb,var(--p) 16%,var(--surface))}
+.opts button.ko{border-color:var(--r);background:color-mix(in srgb,var(--r) 14%,var(--surface))}
+.opts button:disabled{cursor:default}
+.next{align-self:flex-start;border:0;background:var(--fg);color:var(--bg);border-radius:10px;padding:12px 20px;font-weight:600;min-height:44px}
+.prog{display:flex;gap:6px}
+.prog i{flex:1;height:5px;border-radius:3px;background:var(--surface2)}
+.prog i.on{background:var(--v)}
+.prog i.done{background:var(--p)}
+.warn{border-left:3px solid var(--r);padding-left:12px;color:var(--muted);font-size:.93rem}
+footer{color:var(--muted);font-size:.85rem}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:14px">
+  <h1>Elettronica da zero</h1>
+  <p class="lead" style="margin-top:0">Tocca gli slider e guarda cosa succede. Ogni concetto ha un circuito che si muove, così le formule diventano cose che si vedono.</p>
+  <nav class="index" aria-label="Sezioni">
+    <button class="chip" data-go="s-ohm">Ohm</button>
+    <button class="chip" data-go="s-sp">Serie e parallelo</button>
+    <button class="chip" data-go="s-pow">Potenza</button>
+    <button class="chip" data-go="s-led">LED</button>
+    <button class="chip" data-go="s-more">Altro</button>
+    <button class="chip" data-go="s-quiz">Quiz</button>
+  </nav>
+</header>
+
+<section id="s-intro">
+  <h2>Le quattro grandezze</h2>
+  <p class="lead">Pensa a un impianto idraulico. Un circuito funziona allo stesso modo, con l'elettricità al posto dell'acqua.</p>
+  <div class="quad">
+    <div class="q" style="--c:var(--v)"><div class="badge">V</div><div><b>Tensione</b> · <span class="unit">volt (V)</span><p>È la pressione. Quanta spinta dà la batteria agli elettroni. Una pila ha 1,5 V, la presa di casa 230 V.</p></div></div>
+    <div class="q" style="--c:var(--i)"><div class="badge">I</div><div><b>Corrente</b> · <span class="unit">ampere (A)</span><p>È la portata: quanta carica passa ogni secondo. Un LED ne usa pochissima, un forno molta.</p></div></div>
+    <div class="q" style="--c:var(--r)"><div class="badge">R</div><div><b>Resistenza</b> · <span class="unit">ohm (Ω)</span><p>È la strettoia nel tubo. Più è alta, meno corrente passa e più calore si produce.</p></div></div>
+    <div class="q" style="--c:var(--p)"><div class="badge">P</div><div><b>Potenza</b> · <span class="unit">watt (W)</span><p>Quanta energia usi al secondo: tensione per corrente. È ciò che paghi in bolletta.</p></div></div>
+  </div>
+  <div class="card">
+    <h3>Parole che si confondono</h3>
+    <dl class="words" style="margin:0">
+      <dt>Corrente = intensità di corrente</dt>
+      <dd>Sono la stessa cosa. "Intensità" vuol dire solo "quanta corrente".</dd>
+      <dt>Ampere (A) e "amperaggio"</dt>
+      <dd>L'ampere è l'unità di misura. "Amperaggio" è il modo comune per dire quanti ampere. Un caricatore da "2 A" può fornire fino a 2 A, ma il telefono prende solo quelli che gli servono.</dd>
+    </dl>
+  </div>
+</section>
+
+<section id="s-ohm">
+  <h2>Legge di Ohm</h2>
+  <p class="lead">La batteria spinge, la resistenza frena, e la corrente è il risultato. Muovi gli slider.</p>
+  <div class="card">
+    <div class="seg" role="group" aria-label="Vista"><button id="m-el" aria-pressed="true">Circuito</button><button id="m-wa" aria-pressed="false">Tubi d'acqua</button></div>
+    <canvas id="c-ohm" role="img" aria-label="Circuito animato con batteria e resistenza"></canvas>
+    <div class="trio">
+      <div class="tile" style="--c:var(--v)"><small>Tensione</small><b id="o-v"></b></div>
+      <div class="tile" style="--c:var(--r)"><small>Resistenza</small><b id="o-r"></b></div>
+      <div class="tile" style="--c:var(--i)"><small>Corrente</small><b id="o-i"></b></div>
+    </div>
+    <label class="sl" style="--c:var(--v)"><span class="sl-top"><span>Tensione della batteria</span><b id="o-vo"></b></span><input type="range" id="o-vin" min="0" max="12" step="0.5" value="9"></label>
+    <label class="sl" style="--c:var(--r)"><span class="sl-top"><span>Resistenza</span><b id="o-ro"></b></span><input type="range" id="o-rin" min="0" max="1000" step="1" value="477"></label>
+    <div class="eq" id="o-eq"></div>
+    <p class="say" id="o-say"></p>
+    <p class="hint">I puntini sono la corrente: più sono veloci, più ampere passano. Per convenzione la corrente esce dal + e rientra dal −.</p>
+  </div>
+</section>
+
+<section id="s-sp">
+  <h2>Serie e parallelo</h2>
+  <p class="lead">Due lampadine, due modi di collegarle. Prova a svitarne una e guarda cosa succede all'altra.</p>
+  <div class="card">
+    <div class="seg" role="group" aria-label="Collegamento"><button id="sp-s" aria-pressed="true">In serie</button><button id="sp-p" aria-pressed="false">In parallelo</button></div>
+    <canvas id="c-sp" role="img" aria-label="Due lampadine collegate a una batteria da 9 volt"></canvas>
+    <div class="pair"><button id="sp-b1" aria-pressed="false">Svita lampadina 1</button><button id="sp-b2" aria-pressed="false">Svita lampadina 2</button></div>
+    <label class="sl" style="--c:var(--r)"><span class="sl-top"><span>Resistenza lampadina 1</span><b id="sp-r1o"></b></span><input type="range" id="sp-r1" min="10" max="100" step="5" value="30"></label>
+    <label class="sl" style="--c:var(--r)"><span class="sl-top"><span>Resistenza lampadina 2</span><b id="sp-r2o"></b></span><input type="range" id="sp-r2" min="10" max="100" step="5" value="30"></label>
+    <div class="rows" id="sp-rows"></div>
+    <p class="say" id="sp-say"></p>
+  </div>
+</section>
+
+<section id="s-pow">
+  <h2>Potenza, consumi e batterie</h2>
+  <p class="lead">La potenza è tensione per corrente: <b class="cp">P = V × I</b>. Da qui escono due domande pratiche.</p>
+
+  <div class="card">
+    <h3>Quanto dura una batteria?</h3>
+    <p class="hint">I mAh dicono quanta carica contiene. 2000 mAh sono 2000 mA per un'ora, oppure 200 mA per dieci ore.</p>
+    <div class="chips" id="cap-chips"></div>
+    <label class="sl" style="--c:var(--i)"><span class="sl-top"><span>Capacità</span><b id="cap-o"></b></span><input type="range" id="cap-in" min="0" max="1000" step="1" value="500"></label>
+    <div class="chips" id="draw-chips"></div>
+    <label class="sl" style="--c:var(--i)"><span class="sl-top"><span>Consumo del dispositivo</span><b id="draw-o"></b></span><input type="range" id="draw-in" min="0" max="1000" step="1" value="400"></label>
+    <div class="stat"><span>Dura circa</span><span class="big" style="--c:var(--p)" id="dur"></span></div>
+    <p class="hint">Una batteria reale rende un po' meno del valore scritto, di solito intorno all'80%.</p>
+  </div>
+
+  <div class="card">
+    <h3>Il contatore salta?</h3>
+    <p class="hint">In casa hai 230 V e un contatore da 3 kW. Accendi gli apparecchi e guarda la corrente totale.</p>
+    <div class="appl" id="appl"></div>
+    <div class="meter" aria-hidden="true"><i id="m-fill"></i><u></u></div>
+    <div class="stat"><span class="big" style="--c:var(--p)" id="m-w"></span><span class="big" style="--c:var(--i)" id="m-a"></span></div>
+    <p class="say" id="m-say"></p>
+  </div>
+</section>
+
+<section id="s-led">
+  <h2>Accendere un LED senza bruciarlo</h2>
+  <p class="lead">Un LED lascia passare quasi tutta la corrente che gli arriva. Serve una resistenza in serie che la limiti.</p>
+  <div class="card">
+    <div class="chips" id="led-chips"></div>
+    <div class="ledrow"><div class="led" id="led"></div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <label class="sl" style="--c:var(--v)"><span class="sl-top"><span>Alimentazione</span><b id="led-vo"></b></span><input type="range" id="led-v" min="3" max="24" step="0.5" value="9"></label>
+        <label class="sl" style="--c:var(--i)"><span class="sl-top"><span>Corrente voluta</span><b id="led-io"></b></span><input type="range" id="led-i" min="5" max="30" step="1" value="15"></label>
+      </div>
+    </div>
+    <div class="res">
+      <div><small>Resistenza calcolata</small><b class="cr" id="led-rc"></b></div>
+      <div><small>Valore commerciale</small><b class="cr" id="led-rs"></b></div>
+      <div><small>Corrente reale</small><b class="ci" id="led-ia"></b></div>
+      <div><small>Calore nella resistenza</small><b class="cp" id="led-pw"></b></div>
+    </div>
+    <div class="eq" id="led-eq"></div>
+    <p class="say" id="led-say"></p>
+  </div>
+</section>
+
+<section id="s-more">
+  <h2>Altri concetti base</h2>
+  <div class="card">
+    <h3>Il partitore di tensione</h3>
+    <p class="hint">Due resistenze in serie dividono la tensione. È il trucco per ottenere meno volt di quelli che hai.</p>
+    <div class="split" id="dv-bar"><div class="a" id="dv-a"></div><div class="b" id="dv-b"></div></div>
+    <label class="sl" style="--c:var(--v)"><span class="sl-top"><span>Tensione in ingresso</span><b id="dv-vo"></b></span><input type="range" id="dv-v" min="1" max="24" step="1" value="9"></label>
+    <label class="sl" style="--c:var(--r)"><span class="sl-top"><span>R1 (in alto)</span><b id="dv-r1o"></b></span><input type="range" id="dv-r1" min="0" max="1000" step="1" value="333"></label>
+    <label class="sl" style="--c:var(--r)"><span class="sl-top"><span>R2 (in basso)</span><b id="dv-r2o"></b></span><input type="range" id="dv-r2" min="0" max="1000" step="1" value="333"></label>
+    <div class="eq" id="dv-eq"></div>
+  </div>
+
+  <div>
+    <details><summary>Corrente continua e alternata</summary><div>
+      <p><b>Continua (DC)</b>: va sempre nello stesso verso. Pile, batterie, USB, alimentatori.</p>
+      <p><b>Alternata (AC)</b>: inverte il verso 50 volte al secondo (50 Hz). È quella della presa di casa. Gli alimentatori la trasformano in continua.</p>
+    </div></details>
+    <details><summary>Circuito aperto e chiuso</summary><div>
+      <p>La corrente scorre solo in un anello chiuso. Un interruttore apre l'anello: la tensione c'è ancora, la corrente è zero. Come un rubinetto chiuso: la pressione c'è, l'acqua no.</p>
+    </div></details>
+    <details><summary>Massa (GND)</summary><div>
+      <p>Una tensione si misura sempre tra due punti. La massa è il punto di riferimento a 0 V, di solito il polo negativo. Nell'auto è la carrozzeria.</p>
+    </div></details>
+    <details><summary>Corto circuito</summary><div>
+      <p>Un collegamento diretto tra + e − senza resistenza. Con R quasi zero, <b>I = V ÷ R</b> diventa enorme: fili che scaldano, batterie che si gonfiano, incendi.</p>
+      <p>Per questo esistono i fusibili e gli interruttori magnetotermici.</p>
+    </div></details>
+    <details><summary>Fusibile</summary><div>
+      <p>Un filo sottile fatto per fondere se passa troppa corrente. Si sacrifica per proteggere il resto. Si sceglie in ampere: un fusibile da 10 A salta poco sopra i 10 A.</p>
+    </div></details>
+    <details><summary>Diodo e LED</summary><div>
+      <p>Un diodo è una valvola a senso unico: la corrente passa in una direzione sola. Il LED è un diodo che fa luce.</p>
+      <p>Ha una caduta di tensione fissa, circa 2 V per il rosso e 3,2 V per il blu. Il resto della tensione lo deve assorbire la resistenza.</p>
+    </div></details>
+    <details><summary>Condensatore</summary><div>
+      <p>Un serbatoio di carica che si riempie e si svuota in fretta. Si misura in farad, di solito microfarad (µF). Livella la tensione e filtra i disturbi.</p>
+    </div></details>
+    <details><summary>Prefissi: m, k, M, µ</summary><div>
+      <div class="scroll"><table>
+        <tr><th>Simbolo</th><th>Nome</th><th>Valore</th></tr>
+        <tr><td>µ</td><td>micro</td><td>0,000001</td></tr>
+        <tr><td>m</td><td>milli</td><td>0,001</td></tr>
+        <tr><td>k</td><td>kilo</td><td>1 000</td></tr>
+        <tr><td>M</td><td>mega</td><td>1 000 000</td></tr>
+      </table></div>
+      <p>Esempi: 250 mA = 0,25 A. 4,7 kΩ = 4700 Ω.</p>
+    </div></details>
+  </div>
+
+  <p class="warn"><b>Sicurezza.</b> A fare male è la corrente, non solo la tensione. Poche decine di mA attraverso il corpo possono essere pericolose, e la presa di casa ne fornisce molte di più. Per imparare usa pile, batterie e USB a 5 V.</p>
+</section>
+
+<section id="s-quiz">
+  <h2>Mettiti alla prova</h2>
+  <div class="card" id="quiz"></div>
+</section>
+
+<footer>Valori semplificati: i componenti reali hanno tolleranze e si scaldano. Per imparare vanno benissimo.</footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)};
+var clamp=function(x,a,b){return Math.min(b,Math.max(a,x))};
+var nf=function(n,d){return n.toLocaleString('it-IT',{maximumFractionDigits:d==null?2:d,minimumFractionDigits:0})};
+function sig(n,p){return Number(n.toPrecision(p||2))}
+function fA(i){ if(i<=0) return '0 A'; if(i>=1) return nf(i,2)+' A'; if(i>=0.001) return nf(i*1000,i*1000<10?1:0)+' mA'; return nf(i*1e6,0)+' µA'; }
+function fR(r){ if(!isFinite(r)) return '∞'; if(r>=1e6) return nf(r/1e6,2)+' MΩ'; if(r>=1000) return nf(r/1000,2)+' kΩ'; return nf(r,r<10?2:1)+' Ω'; }
+function fV(v){return nf(v,2)+' V'}
+function fW(p){ if(p>=1000) return nf(p/1000,2)+' kW'; if(p>=1) return nf(p,p<10?2:1)+' W'; return nf(p*1000,0)+' mW'; }
+function logv(x,min,max,p){return sig(min*Math.pow(max/min,x/1000),p||2)}
+function rgba(h,a){h=(h||'#888888').replace('#','');if(h.length===3)h=h.split('').map(function(c){return c+c}).join('');var n=parseInt(h,16);return 'rgba('+(n>>16)+','+(n>>8&255)+','+(n&255)+','+a+')'}
+
+/* ---------- tema per i canvas ---------- */
+var T={};
+function readTheme(){var cs=getComputedStyle(document.documentElement);['bg','surface','surface2','fg','muted','line','v','i','r','p','wire'].forEach(function(k){T[k]=cs.getPropertyValue('--'+k).trim()})}
+readTheme();
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- motore canvas ---------- */
+var canvases=[];
+function makeCanvas(el,draw){
+  var o={el:el,ctx:el.getContext('2d'),draw:draw,visible:true,k:1};
+  function fit(){var r=el.getBoundingClientRect();if(!r.width)return;var d=Math.min(window.devicePixelRatio||1,3);el.width=Math.round(r.width*d);el.height=Math.round(r.width*0.75*d);o.k=r.width/320*d}
+  if(window.ResizeObserver)new ResizeObserver(fit).observe(el);else window.addEventListener('resize',fit);
+  fit();
+  if(window.IntersectionObserver)new IntersectionObserver(function(es){o.visible=es[0].isIntersecting}).observe(el);
+  canvases.push(o);return o;
+}
+var last=performance.now(),fn=0;
+function frame(t){
+  var dt=Math.min(0.05,(t-last)/1000);last=t;fn++;if(fn%45===0)readTheme();
+  canvases.forEach(function(c){if(!c.visible)return;c.ctx.setTransform(c.k,0,0,c.k,0,0);c.ctx.clearRect(0,0,320,240);c.draw(c.ctx,reduce?0:dt)});
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- percorsi e particelle ---------- */
+function mkPath(pts){var seg=[],L=0;for(var k=0;k<pts.length;k++){var a=pts[k],b=pts[(k+1)%pts.length],d=Math.hypot(b[0]-a[0],b[1]-a[1]);seg.push({a:a,b:b,d:d,s:L});L+=d}
+  return {L:L,at:function(s){s=((s%L)+L)%L;for(var j=0;j<seg.length;j++){var g=seg[j];if(s<=g.s+g.d){var u=(s-g.s)/g.d;return [g.a[0]+(g.b[0]-g.a[0])*u,g.a[1]+(g.b[1]-g.a[1])*u]}}return seg[0].a}}}
+function spd(I){return I<=0?0:clamp(70*Math.sqrt(I),0,190)}
+function flow(ctx,path,phase,color,rad,alpha){var n=Math.floor(path.L/18),sp=path.L/n;ctx.globalAlpha=alpha==null?1:alpha;ctx.fillStyle=color;for(var k=0;k<n;k++){var p=path.at(phase+k*sp);ctx.beginPath();ctx.arc(p[0],p[1],rad,0,6.2832);ctx.fill()}ctx.globalAlpha=1}
+function label(ctx,t,x,y,al){ctx.font='500 11px Inter,system-ui,sans-serif';ctx.fillStyle=T.muted;ctx.textAlign=al||'center';ctx.textBaseline='middle';ctx.fillText(t,x,y)}
+function battery(ctx,x,yc){
+  ctx.fillStyle=T.surface;ctx.fillRect(x-14,yc-26,28,52);
+  ctx.strokeStyle=T.wire;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,yc-26);ctx.lineTo(x,yc-16);ctx.moveTo(x,yc+16);ctx.lineTo(x,yc+26);ctx.stroke();
+  ctx.strokeStyle=T.v;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x-13,yc-16);ctx.lineTo(x+13,yc-16);ctx.stroke();
+  ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(x-7,yc+12);ctx.lineTo(x+7,yc+12);ctx.stroke();
+  ctx.font='700 13px Inter,system-ui,sans-serif';ctx.fillStyle=T.v;ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText('+',x+18,yc-16);ctx.fillText('−',x+18,yc+12);
+}
+
+/* ---------- 1. Legge di Ohm ---------- */
+var ohm={V:9,R:30,mode:'el',phase:0};
+var OP=mkPath([[40,40],[280,40],[280,200],[40,200]]);
+function funnel(ctx,x,y0,y1,ho,hi,fill){var a=y0+22,b=y1-22;ctx.beginPath();ctx.moveTo(x-ho,y0);ctx.lineTo(x+ho,y0);ctx.lineTo(x+hi,a);ctx.lineTo(x+hi,b);ctx.lineTo(x+ho,y1);ctx.lineTo(x-ho,y1);ctx.lineTo(x-hi,b);ctx.lineTo(x-hi,a);ctx.closePath();ctx.fillStyle=fill;ctx.fill()}
+function drawOhm(ctx,dt){
+  var I=ohm.V/ohm.R,P=ohm.V*I;ohm.phase+=spd(I)*dt;
+  ctx.lineJoin='round';
+  if(ohm.mode==='el'){
+    ctx.strokeStyle=T.wire;ctx.lineWidth=3;ctx.strokeRect(40,40,240,160);
+    var g=clamp(Math.sqrt(P/40),0,1);
+    if(g>0.02){var gr=ctx.createRadialGradient(280,120,0,280,120,46);gr.addColorStop(0,rgba(T.r,g*0.6));gr.addColorStop(1,rgba(T.r,0));ctx.fillStyle=gr;ctx.fillRect(220,60,100,120)}
+    flow(ctx,OP,ohm.phase,T.i,3,I>0?1:0.25);
+    battery(ctx,40,120);
+    ctx.fillStyle=T.surface;ctx.fillRect(266,84,28,72);
+    ctx.strokeStyle=T.wire;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(280,84);ctx.lineTo(280,92);ctx.moveTo(280,148);ctx.lineTo(280,156);ctx.stroke();
+    ctx.strokeStyle=T.r;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(280,92);ctx.lineTo(271,97);ctx.lineTo(289,105);ctx.lineTo(271,113);ctx.lineTo(289,121);ctx.lineTo(271,129);ctx.lineTo(289,137);ctx.lineTo(280,143);ctx.lineTo(280,148);ctx.stroke();
+    label(ctx,'batteria',58,120+2,'left');
+    label(ctx,'resistenza',264,120,'right');
+  }else{
+    ctx.strokeStyle=T.line;ctx.lineWidth=18;ctx.strokeRect(40,40,240,160);
+    ctx.strokeStyle=T.surface;ctx.lineWidth=14;ctx.strokeRect(40,40,240,160);
+    ctx.strokeStyle=rgba(T.v,0.2);ctx.strokeRect(40,40,240,160);
+    var t=Math.log(ohm.R)/Math.log(10)/3,wi=3+11*(1-t);
+    ctx.fillStyle=T.surface;ctx.fillRect(264,74,32,92);
+    funnel(ctx,280,80,160,9,wi/2+2,T.line);funnel(ctx,280,80,160,7,wi/2,T.surface);funnel(ctx,280,80,160,7,wi/2,rgba(T.v,0.2));
+    flow(ctx,OP,ohm.phase,T.v,2.4,I>0?0.95:0.25);
+    ctx.fillStyle=T.surface;ctx.fillRect(22,92,36,56);
+    ctx.beginPath();ctx.arc(40,120,19,0,6.2832);ctx.fillStyle=T.surface2;ctx.fill();ctx.strokeStyle=T.v;ctx.lineWidth=3;ctx.stroke();
+    ctx.lineWidth=3.5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(40,129);ctx.lineTo(40,111);ctx.moveTo(33,118);ctx.lineTo(40,110);ctx.lineTo(47,118);ctx.stroke();ctx.lineCap='butt';
+    label(ctx,'pompa',60,120,'left');label(ctx,'strettoia',264,120,'right');
+  }
+}
+var ohmC=makeCanvas($('#c-ohm'),drawOhm);
+function updOhm(){
+  var V=ohm.V,R=ohm.R,I=V/R,P=V*I;
+  $('#o-v').textContent=fV(V);$('#o-r').textContent=fR(R);$('#o-i').textContent=fA(I);
+  $('#o-vo').textContent=fV(V);$('#o-ro').textContent=fR(R);
+  $('#o-eq').innerHTML='<span class="cv">'+fV(V)+'</span> ÷ <span class="cr">'+fR(R)+'</span> = <span class="ci">'+fA(I)+'</span><small>corrente = tensione ÷ resistenza</small>';
+  $('#o-say').textContent=V===0?'Senza tensione nessuno spinge: la corrente è zero.':'Con '+fR(R)+' passano '+fA(I)+'. Raddoppia la resistenza e scendono a '+fA(I/2)+'. Raddoppia la tensione e salgono a '+fA(I*2)+'. La resistenza trasforma '+fW(P)+' in calore.';
+}
+$('#o-vin').addEventListener('input',function(e){ohm.V=+e.target.value;updOhm()});
+$('#o-rin').addEventListener('input',function(e){ohm.R=logv(+e.target.value,1,1000,2);updOhm()});
+function setMode(m){ohm.mode=m;$('#m-el').setAttribute('aria-pressed',m==='el');$('#m-wa').setAttribute('aria-pressed',m==='wa')}
+$('#m-el').onclick=function(){setMode('el')};$('#m-wa').onclick=function(){setMode('wa')};
+ohm.R=logv(477,1,1000,2);updOhm();
+
+/* ---------- 2. Serie e parallelo ---------- */
+var sp={mode:'s',R1:30,R2:30,on1:true,on2:true,V:9,ph:[0,0]};
+var SPS=[mkPath([[40,40],[280,40],[280,200],[40,200]])];
+var SPP=[mkPath([[40,100],[40,40],[130,40],[130,200],[40,200],[40,140]]),mkPath([[40,100],[40,40],[230,40],[230,200],[40,200],[40,140]])];
+function spCalc(){
+  var V=sp.V,R1=sp.R1,R2=sp.R2,r;
+  if(sp.mode==='s'){ if(sp.on1&&sp.on2){var Rt=R1+R2,I=V/Rt;r={Rt:Rt,I:I,I1:I,I2:I,V1:I*R1,V2:I*R2}}else r={Rt:Infinity,I:0,I1:0,I2:0,V1:0,V2:0}}
+  else{var a=sp.on1?V/R1:0,b=sp.on2?V/R2:0,t=a+b;r={Rt:t>0?V/t:Infinity,I:t,I1:a,I2:b,V1:V,V2:V}}
+  r.P1=r.I1*r.I1*R1;r.P2=r.I2*r.I2*R2;return r;
+}
+function lamp(ctx,x,y,glow,on){
+  ctx.fillStyle=T.surface;ctx.beginPath();ctx.arc(x,y,17,0,6.2832);ctx.fill();
+  if(on){
+    if(glow>0.02){var g=ctx.createRadialGradient(x,y,0,x,y,44);g.addColorStop(0,rgba(T.i,0.15+glow*0.6));g.addColorStop(1,rgba(T.i,0));ctx.fillStyle=g;ctx.fillRect(x-48,y-48,96,96)}
+    ctx.beginPath();ctx.arc(x,y,14,0,6.2832);ctx.fillStyle=rgba(T.i,0.1+glow*0.8);ctx.fill();
+    ctx.strokeStyle=T.fg;ctx.lineWidth=2;ctx.setLineDash([]);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x-6,y-6);ctx.lineTo(x+6,y+6);ctx.moveTo(x+6,y-6);ctx.lineTo(x-6,y+6);ctx.stroke();
+  }else{
+    ctx.beginPath();ctx.arc(x,y,14,0,6.2832);ctx.strokeStyle=T.muted;ctx.lineWidth=2;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+  }
+}
+function drawSp(ctx,dt){
+  var r=spCalc(),s=sp.mode==='s';ctx.lineJoin='round';
+  ctx.strokeStyle=T.wire;ctx.lineWidth=3;
+  if(s){
+    ctx.strokeRect(40,40,240,160);
+    sp.ph[0]+=spd(r.I)*dt;flow(ctx,SPS[0],sp.ph[0],T.i,3,r.I>0?1:0.22);
+    battery(ctx,40,120);
+    lamp(ctx,160,40,clamp(r.P1/3,0,1),sp.on1);lamp(ctx,160,200,clamp(r.P2/3,0,1),sp.on2);
+    label(ctx,'1',160,16);label(ctx,'2',160,224);
+  }else{
+    ctx.beginPath();ctx.moveTo(40,40);ctx.lineTo(230,40);ctx.moveTo(40,200);ctx.lineTo(230,200);ctx.moveTo(40,40);ctx.lineTo(40,200);ctx.moveTo(130,40);ctx.lineTo(130,200);ctx.moveTo(230,40);ctx.lineTo(230,200);ctx.stroke();
+    sp.ph[0]+=spd(r.I1)*dt;sp.ph[1]+=spd(r.I2)*dt;
+    flow(ctx,SPP[0],sp.ph[0],T.i,3,r.I1>0?1:0.22);flow(ctx,SPP[1],sp.ph[1],T.i,3,r.I2>0?1:0.22);
+    battery(ctx,40,120);
+    ctx.fillStyle=T.wire;[[130,40],[130,200],[230,40],[230,200]].forEach(function(p){ctx.beginPath();ctx.arc(p[0],p[1],4,0,6.2832);ctx.fill()});
+    lamp(ctx,130,120,clamp(r.P1/3,0,1),sp.on1);lamp(ctx,230,120,clamp(r.P2/3,0,1),sp.on2);
+    label(ctx,'1',156,120,'left');label(ctx,'2',256,120,'left');
+  }
+}
+makeCanvas($('#c-sp'),drawSp);
+function updSp(){
+  var r=spCalc(),s=sp.mode==='s';
+  $('#sp-r1o').textContent=fR(sp.R1);$('#sp-r2o').textContent=fR(sp.R2);
+  $('#sp-s').setAttribute('aria-pressed',s);$('#sp-p').setAttribute('aria-pressed',!s);
+  $('#sp-b1').setAttribute('aria-pressed',!sp.on1);$('#sp-b2').setAttribute('aria-pressed',!sp.on2);
+  $('#sp-b1').textContent=sp.on1?'Svita lampadina 1':'Riavvita lampadina 1';$('#sp-b2').textContent=sp.on2?'Svita lampadina 2':'Riavvita lampadina 2';
+  var how=s?(nf(sp.R1)+' + '+nf(sp.R2)+' = '+fR(sp.R1+sp.R2)):('1 ÷ (1/'+nf(sp.R1)+' + 1/'+nf(sp.R2)+') = '+fR(sp.R1*sp.R2/(sp.R1+sp.R2)));
+  var v1=sp.on1?fV(r.V1):'—',v2=sp.on2?fV(r.V2):'—';
+  $('#sp-rows').innerHTML=
+   '<span>Resistenza totale</span><span class="cr">'+(isFinite(r.Rt)?fR(r.Rt):'∞ (circuito aperto)')+'</span>'+
+   '<span>Calcolo</span><span>'+how+'</span>'+
+   '<span>Corrente dalla batteria (9 V)</span><span class="ci">'+fA(r.I)+'</span>'+
+   '<span>Lampadina 1</span><span><span class="cv">'+v1+'</span> · <span class="ci">'+fA(r.I1)+'</span></span>'+
+   '<span>Lampadina 2</span><span><span class="cv">'+v2+'</span> · <span class="ci">'+fA(r.I2)+'</span></span>';
+  var t;
+  if(s){t=(sp.on1&&sp.on2)?'In serie passa la stessa corrente in tutto il percorso. Le resistenze si sommano e i 9 V si dividono tra le lampadine, quindi brillano poco.':'In serie c\'è una sola strada. Se una lampadina è svitata il circuito è aperto e si spengono tutte.'}
+  else{t=(sp.on1&&sp.on2)?'In parallelo ogni lampadina riceve tutti i 9 V, quindi brilla al massimo. Le correnti si sommano e la resistenza totale scende, anche sotto la più piccola.':'In parallelo ogni ramo è indipendente. Svitandone uno, l\'altro continua a funzionare come prima.'}
+  $('#sp-say').textContent=t;
+}
+$('#sp-s').onclick=function(){sp.mode='s';updSp()};$('#sp-p').onclick=function(){sp.mode='p';updSp()};
+$('#sp-b1').onclick=function(){sp.on1=!sp.on1;updSp()};$('#sp-b2').onclick=function(){sp.on2=!sp.on2;updSp()};
+$('#sp-r1').addEventListener('input',function(e){sp.R1=+e.target.value;updSp()});
+$('#sp-r2').addEventListener('input',function(e){sp.R2=+e.target.value;updSp()});
+updSp();
+
+/* ---------- 3a. Batteria ---------- */
+var bat={cap:2000,draw:100};
+function chipRow(host,items,pick,get){
+  var el=$(host);el.innerHTML='';
+  items.forEach(function(it){var b=document.createElement('button');b.className='chip';b.textContent=it[0];b.onclick=function(){pick(it[1])};el.appendChild(b)});
+}
+function fDur(h){
+  if(h<1) return nf(h*60,0)+' min';
+  if(h<48) return nf(h,h<10?1:0)+' ore';
+  var d=h/24; return nf(d,d<10?1:0)+' giorni';
+}
+function updBat(){
+  $('#cap-o').textContent=nf(bat.cap,0)+' mAh';$('#draw-o').textContent=bat.draw>=1000?nf(bat.draw/1000,2)+' A':nf(bat.draw,0)+' mA';
+  $('#dur').textContent=fDur(bat.cap/bat.draw);
+  var cx=Math.round(1000*Math.log(bat.cap/100)/Math.log(1000)),dx=Math.round(1000*Math.log(bat.draw/1)/Math.log(5000));
+  $('#cap-in').value=clamp(cx,0,1000);$('#draw-in').value=clamp(dx,0,1000);
+  document.querySelectorAll('#cap-chips .chip').forEach(function(c,k){c.setAttribute('aria-pressed',String(CAPS[k][1]===bat.cap))});
+  document.querySelectorAll('#draw-chips .chip').forEach(function(c,k){c.setAttribute('aria-pressed',String(DRAWS[k][1]===bat.draw))});
+}
+var CAPS=[['Pila AAA 1000',1000],['Pila AA 2500',2500],['Telefono 4500',4500],['Power bank 10000',10000]];
+var DRAWS=[['LED 20 mA',20],['Arduino 50 mA',50],['Telefono 400 mA',400],['Faro 2 A',2000]];
+chipRow('#cap-chips',CAPS,function(v){bat.cap=v;updBat()});chipRow('#draw-chips',DRAWS,function(v){bat.draw=v;updBat()});
+$('#cap-in').addEventListener('input',function(e){bat.cap=logv(+e.target.value,100,100000,2);updBat()});
+$('#draw-in').addEventListener('input',function(e){bat.draw=logv(+e.target.value,1,5000,2);updBat()});
+updBat();
+
+/* ---------- 3b. Contatore ---------- */
+var APPL=[['Frigorifero',150,1],['Luci LED',60,1],['Televisore',120,1],['Computer',200,0],['Aspirapolvere',1400,0],['Ferro da stiro',1800,0],['Asciugacapelli',2000,0],['Bollitore',2000,0],['Forno elettrico',2200,0],['Lavatrice',2200,0]];
+var ap=$('#appl');
+APPL.forEach(function(a,k){var b=document.createElement('button');b.setAttribute('aria-pressed',String(!!a[2]));b.innerHTML=a[0]+'<span>'+nf(a[1],0)+' W</span>';b.onclick=function(){a[2]=a[2]?0:1;b.setAttribute('aria-pressed',String(!!a[2]));updMeter()};ap.appendChild(b)});
+function updMeter(){
+  var W=APPL.reduce(function(s,a){return s+(a[2]?a[1]:0)},0),A=W/230;
+  var f=$('#m-fill');f.style.width=clamp(W/4000*100,0,100)+'%';
+  f.style.background=W>3300?'var(--r)':W>2700?'var(--i)':'var(--p)';
+  $('#m-w').textContent=fW(W);$('#m-a').textContent=nf(A,1)+' A';
+  $('#m-say').textContent=W>3300?'Il contatore stacca. Oltre circa 3,3 kW salta, e con '+nf(A,1)+' A ci siamo ben sopra.':W>2700?'Sei vicino al limite. Un altro apparecchio potente e salta.':'Tutto regolare. La corrente è la potenza divisa per 230 V: '+fW(W)+' ÷ 230 V = '+nf(A,1)+' A.';
+}
+updMeter();
+
+/* ---------- 4. LED ---------- */
+var LEDS=[['Rosso',2.0,'#ff3b3b'],['Giallo',2.1,'#ffc933'],['Verde',2.2,'#35d46a'],['Blu',3.2,'#3d7bff'],['Bianco',3.2,'#dfe8ff']];
+var led={k:0,Vs:9,I:15};
+var E12=[1,1.2,1.5,1.8,2.2,2.7,3.3,3.9,4.7,5.6,6.8,8.2,10];
+function nextE12(r){var d=Math.pow(10,Math.floor(Math.log10(r)));for(var k=0;k<E12.length;k++){if(E12[k]*d>=r*0.999)return sig(E12[k]*d,2)}return r}
+chipRow('#led-chips',LEDS.map(function(l,k){return [l[0]+' · '+nf(l[1],1)+' V',k]}),function(k){led.k=k;updLed()});
+function updLed(){
+  var L=LEDS[led.k],Vf=L[1],Vs=led.Vs,I=led.I/1000;
+  $('#led-vo').textContent=fV(Vs);$('#led-io').textContent=led.I+' mA';
+  document.querySelectorAll('#led-chips .chip').forEach(function(c,k){c.setAttribute('aria-pressed',String(k===led.k))});
+  var el=$('#led');
+  if(Vs<=Vf){
+    el.style.background=L[2];el.style.opacity=0.18;el.style.boxShadow='none';
+    ['#led-rc','#led-rs','#led-ia','#led-pw'].forEach(function(s){$(s).textContent='—'});
+    $('#led-eq').innerHTML='';$('#led-say').textContent='La tensione ('+fV(Vs)+') non supera quella del LED ('+fV(Vf)+'). Non si accende: alza l\'alimentazione.';return;
+  }
+  var Rc=(Vs-Vf)/I,Rs=nextE12(Rc),Ia=(Vs-Vf)/Rs,P=Ia*Ia*Rs;
+  $('#led-rc').textContent=fR(Rc);$('#led-rs').textContent=fR(Rs);$('#led-ia').textContent=fA(Ia);$('#led-pw').textContent=fW(P);
+  var b=clamp(Ia/0.02,0.2,1.2);el.style.background=L[2];el.style.opacity=clamp(0.35+b*0.65,0,1);el.style.boxShadow='0 0 '+Math.round(10+b*26)+'px '+Math.round(b*8)+'px '+rgba(L[2],0.55);
+  $('#led-eq').innerHTML='(<span class="cv">'+fV(Vs)+'</span> − <span class="cv">'+fV(Vf)+'</span>) ÷ <span class="ci">'+fA(I)+'</span> = <span class="cr">'+fR(Rc)+'</span><small>resistenza = (alimentazione − tensione LED) ÷ corrente</small>';
+  $('#led-say').textContent='La resistenza assorbe i '+fV(Vs-Vf)+' che il LED non usa. Si sceglie il valore commerciale più vicino verso l\'alto, così la corrente resta sotto il limite.'+(P>0.25?' Qui scalda più di ¼ W, serve una resistenza da almeno '+(P>0.5?'1':'½')+' W.':' Una resistenza da ¼ W basta.');
+}
+$('#led-v').addEventListener('input',function(e){led.Vs=+e.target.value;updLed()});
+$('#led-i').addEventListener('input',function(e){led.I=+e.target.value;updLed()});
+updLed();
+
+/* ---------- 5. Partitore ---------- */
+var dv={V:9,R1:1000,R2:1000};
+function updDv(){
+  var Vo=dv.V*dv.R2/(dv.R1+dv.R2),Vd=dv.V-Vo;
+  $('#dv-vo').textContent=fV(dv.V);$('#dv-r1o').textContent=fR(dv.R1);$('#dv-r2o').textContent=fR(dv.R2);
+  var a=$('#dv-a'),b=$('#dv-b');a.style.flex=Vd+' 1 0';b.style.flex=Vo+' 1 0';
+  a.textContent=Vd>=dv.V*0.14?'R1 · '+fV(Vd):'';b.textContent=Vo>=dv.V*0.14?'R2 · '+fV(Vo):'';
+  $('#dv-eq').innerHTML='<span class="cv">'+fV(dv.V)+'</span> × '+fR(dv.R2)+' ÷ ('+fR(dv.R1)+' + '+fR(dv.R2)+') = <span class="cv">'+fV(Vo)+'</span><small>uscita = ingresso × R2 ÷ (R1 + R2). Rosso: tensione su R1. Blu: uscita su R2.</small>';
+}
+$('#dv-v').addEventListener('input',function(e){dv.V=+e.target.value;updDv()});
+$('#dv-r1').addEventListener('input',function(e){dv.R1=logv(+e.target.value,100,100000,2);updDv()});
+$('#dv-r2').addEventListener('input',function(e){dv.R2=logv(+e.target.value,100,100000,2);updDv()});
+dv.R1=logv(333,100,100000,2);dv.R2=dv.R1;updDv();
+
+/* ---------- Quiz ---------- */
+var QZ=[
+ {q:'Nell\'analogia con l\'acqua, a cosa corrisponde la tensione?',o:['Alla portata','Alla pressione','Alla strettoia del tubo'],a:1,e:'La tensione è la spinta, come la pressione. La portata è la corrente e la strettoia è la resistenza.'},
+ {q:'La tensione resta uguale ma raddoppi la resistenza. La corrente…',o:['Raddoppia','Resta uguale','Si dimezza'],a:2,e:'I = V ÷ R. Con R doppia, I diventa la metà.'},
+ {q:'Due lampadine in serie: ne svito una. L\'altra…',o:['Si spegne','Brilla di più','Resta accesa'],a:0,e:'In serie c\'è una sola strada. Se si interrompe, la corrente si ferma per tutti.'},
+ {q:'Due resistenze da 100 Ω in parallelo valgono…',o:['200 Ω','100 Ω','50 Ω'],a:2,e:'In parallelo la corrente ha due strade, quindi la resistenza totale scende: 100 ÷ 2 = 50 Ω.'},
+ {q:'Un dispositivo a 5 V assorbe 2 A. Quanta potenza usa?',o:['10 W','2,5 W','7 W'],a:0,e:'P = V × I = 5 V × 2 A = 10 W.'},
+ {q:'Una batteria da 2000 mAh alimenta un carico da 100 mA. Quanto dura, in teoria?',o:['2 ore','20 ore','200 ore'],a:1,e:'2000 mAh ÷ 100 mA = 20 ore.'}
+];
+var qs={i:0,score:0,done:false};
+function renderQuiz(){
+  var host=$('#quiz');host.innerHTML='';
+  var prog='<div class="prog" aria-hidden="true">'+QZ.map(function(_,k){return '<i class="'+(k<qs.i?'done':k===qs.i&&!qs.fin?'on':'')+'"></i>'}).join('')+'</div>';
+  if(qs.fin){
+    host.innerHTML=prog+'<h3>Risultato: '+qs.score+' su '+QZ.length+'</h3><p>'+(qs.score>=5?'Ottimo, hai capito le basi.':qs.score>=3?'Buona base. Rigioca con gli slider sopra e riprova.':'Torna alle simulazioni e riprova: si impara toccando.')+'</p>';
+    var b=document.createElement('button');b.className='next';b.textContent='Ricomincia';b.onclick=function(){qs={i:0,score:0};renderQuiz()};host.appendChild(b);return;
+  }
+  var q=QZ[qs.i];
+  host.insertAdjacentHTML('beforeend',prog+'<p class="hint">Domanda '+(qs.i+1)+' di '+QZ.length+'</p><h3>'+q.q+'</h3>');
+  var opts=document.createElement('div');opts.className='opts';host.appendChild(opts);
+  var fb=document.createElement('p');fb.className='say';fb.hidden=true;host.appendChild(fb);
+  var nx=document.createElement('button');nx.className='next';nx.hidden=true;nx.textContent=qs.i===QZ.length-1?'Vedi il risultato':'Avanti';host.appendChild(nx);
+  q.o.forEach(function(t,k){var b=document.createElement('button');b.textContent=t;b.onclick=function(){
+    Array.prototype.forEach.call(opts.children,function(c,j){c.disabled=true;if(j===q.a)c.classList.add('ok')});
+    if(k===q.a){qs.score++}else b.classList.add('ko');
+    fb.textContent=(k===q.a?'Giusto. ':'Non proprio. ')+q.e;fb.hidden=false;nx.hidden=false;nx.focus({preventScroll:true});
+  };opts.appendChild(b)});
+  nx.onclick=function(){qs.i++;if(qs.i>=QZ.length){qs.fin=true}renderQuiz()};
+}
+renderQuiz();
+
+/* ---------- indice ---------- */
+document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){var t=document.getElementById(b.dataset.go);if(t)t.scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'})}});
+})();
+</script>
