@@ -34,6 +34,10 @@ section{display:flex;flex-direction:column;gap:16px;scroll-margin-top:16px}
 button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 :focus-visible{outline:3px solid var(--v);outline-offset:2px}
 canvas{width:100%;height:auto;aspect-ratio:4/3;display:block}
+canvas.wide{aspect-ratio:10/3.2}
+.chips.three{display:grid;grid-template-columns:repeat(3,1fr)}
+.chips.three .chip{padding:8px 6px;font-size:.85rem;line-height:1.2;min-height:52px}
+.say.cap{min-height:9.5em}
 
 /* indice */
 .index{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-inline:-16px;padding-inline:16px;scrollbar-width:none}
@@ -170,10 +174,18 @@ footer{color:var(--muted);font-size:.85rem}
 
 <section id="s-ohm">
   <h2>Legge di Ohm</h2>
-  <p class="lead">La batteria spinge, la resistenza frena, e la corrente è il risultato. Muovi gli slider.</p>
+  <p class="lead">Qui dentro vedi cosa fanno davvero gli elettroni. Tocca i tre «Perché?», muovi gli slider e prova l'interruttore.</p>
   <div class="card">
-    <div class="seg" role="group" aria-label="Vista"><button id="m-el" aria-pressed="true">Circuito</button><button id="m-wa" aria-pressed="false">Tubi d'acqua</button></div>
-    <canvas id="c-ohm" role="img" aria-label="Circuito animato con batteria e resistenza"></canvas>
+    <div class="seg" role="group" aria-label="Vista"><button id="m-el" aria-pressed="true">Elettroni nel filo</button><button id="m-wa" aria-pressed="false">Tubi d'acqua</button></div>
+    <canvas id="c-ohm" role="img" aria-label="Circuito animato: elettroni che scorrono dalla batteria attraverso un resistore"></canvas>
+    <p class="hint" style="margin-bottom:-8px">Interruttore (puoi anche toccarlo nel disegno)</p>
+    <div class="seg" role="group" aria-label="Interruttore"><button id="sw-c" aria-pressed="true">Chiuso</button><button id="sw-o" aria-pressed="false">Aperto</button></div>
+    <div class="chips three" role="group" aria-label="Spiegazioni">
+      <button class="chip" data-why="push" aria-pressed="false">Perché si muove?</button>
+      <button class="chip" data-why="slow" aria-pressed="false">Perché rallenta?</button>
+      <button class="chip" data-why="stop" aria-pressed="false">Perché si ferma?</button>
+    </div>
+    <p class="say cap" id="o-cap"></p>
     <div class="trio">
       <div class="tile" style="--c:var(--v)"><small>Tensione</small><b id="o-v"></b></div>
       <div class="tile" style="--c:var(--r)"><small>Resistenza</small><b id="o-r"></b></div>
@@ -182,8 +194,10 @@ footer{color:var(--muted);font-size:.85rem}
     <label class="sl" style="--c:var(--v)"><span class="sl-top"><span>Tensione della batteria</span><b id="o-vo"></b></span><input type="range" id="o-vin" min="0" max="12" step="0.5" value="9"></label>
     <label class="sl" style="--c:var(--r)"><span class="sl-top"><span>Resistenza</span><b id="o-ro"></b></span><input type="range" id="o-rin" min="0" max="1000" step="1" value="477"></label>
     <div class="eq" id="o-eq"></div>
-    <p class="say" id="o-say"></p>
-    <p class="hint">I puntini sono la corrente: più sono veloci, più ampere passano. Per convenzione la corrente esce dal + e rientra dal −.</p>
+    <h3>La montagna della tensione</h3>
+    <canvas id="c-mt" class="wide" role="img" aria-label="Profilo di altezza lungo il circuito: salita nella batteria, discesa nel resistore"></canvas>
+    <p class="hint" id="mt-txt"></p>
+    <p class="hint">I puntini arancioni sono elettroni: escono dal polo − e vanno verso il +. Nei libri la corrente è disegnata al contrario, per convenzione storica.</p>
   </div>
 </section>
 
@@ -198,6 +212,7 @@ footer{color:var(--muted);font-size:.85rem}
     <label class="sl" style="--c:var(--r)"><span class="sl-top"><span>Resistenza lampadina 2</span><b id="sp-r2o"></b></span><input type="range" id="sp-r2" min="10" max="100" step="5" value="30"></label>
     <div class="rows" id="sp-rows"></div>
     <p class="say" id="sp-say"></p>
+    <p class="hint">I puntini sono gli elettroni: escono dal polo − e tornano al +. Più sono veloci, più ampere passano.</p>
   </div>
 </section>
 
@@ -330,81 +345,234 @@ var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').mat
 
 /* ---------- motore canvas ---------- */
 var canvases=[];
-function makeCanvas(el,draw){
-  var o={el:el,ctx:el.getContext('2d'),draw:draw,visible:true,k:1};
-  function fit(){var r=el.getBoundingClientRect();if(!r.width)return;var d=Math.min(window.devicePixelRatio||1,3);el.width=Math.round(r.width*d);el.height=Math.round(r.width*0.75*d);o.k=r.width/320*d}
+function makeCanvas(el,draw,ratio){
+  var o={el:el,ctx:el.getContext('2d'),draw:draw,visible:true,k:1,ratio:ratio||0.75};
+  function fit(){var r=el.getBoundingClientRect();if(!r.width)return;var d=Math.min(window.devicePixelRatio||1,3);el.width=Math.round(r.width*d);el.height=Math.round(r.width*o.ratio*d);o.k=r.width/320*d}
   if(window.ResizeObserver)new ResizeObserver(fit).observe(el);else window.addEventListener('resize',fit);
   fit();
   if(window.IntersectionObserver)new IntersectionObserver(function(es){o.visible=es[0].isIntersecting}).observe(el);
   canvases.push(o);return o;
 }
-var last=performance.now(),fn=0;
+var last=performance.now(),fn=0,stepFns=[];
 function frame(t){
-  var dt=Math.min(0.05,(t-last)/1000);last=t;fn++;if(fn%45===0)readTheme();
-  canvases.forEach(function(c){if(!c.visible)return;c.ctx.setTransform(c.k,0,0,c.k,0,0);c.ctx.clearRect(0,0,320,240);c.draw(c.ctx,reduce?0:dt)});
+  var dt=Math.max(0,Math.min(0.05,(t-last)/1000));last=t;fn++;if(fn%45===0)readTheme();
+  var sdt=reduce?0:dt;stepFns.forEach(function(f){f(sdt)});
+  canvases.forEach(function(c){if(!c.visible)return;c.ctx.setTransform(c.k,0,0,c.k,0,0);c.ctx.clearRect(0,0,320,320*c.ratio);c.draw(c.ctx,sdt)});
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
 /* ---------- percorsi e particelle ---------- */
 function mkPath(pts){var seg=[],L=0;for(var k=0;k<pts.length;k++){var a=pts[k],b=pts[(k+1)%pts.length],d=Math.hypot(b[0]-a[0],b[1]-a[1]);seg.push({a:a,b:b,d:d,s:L});L+=d}
-  return {L:L,at:function(s){s=((s%L)+L)%L;for(var j=0;j<seg.length;j++){var g=seg[j];if(s<=g.s+g.d){var u=(s-g.s)/g.d;return [g.a[0]+(g.b[0]-g.a[0])*u,g.a[1]+(g.b[1]-g.a[1])*u]}}return seg[0].a}}}
+  return {L:L,at:function(s){s=((s%L)+L)%L;for(var j=0;j<seg.length;j++){var g=seg[j];if(s<=g.s+g.d){var u=(s-g.s)/g.d;return [g.a[0]+(g.b[0]-g.a[0])*u,g.a[1]+(g.b[1]-g.a[1])*u,-(g.b[1]-g.a[1])/g.d,(g.b[0]-g.a[0])/g.d]}}return seg[0].a}}}
 function spd(I){return I<=0?0:clamp(70*Math.sqrt(I),0,190)}
 function flow(ctx,path,phase,color,rad,alpha){var n=Math.floor(path.L/18),sp=path.L/n;ctx.globalAlpha=alpha==null?1:alpha;ctx.fillStyle=color;for(var k=0;k<n;k++){var p=path.at(phase+k*sp);ctx.beginPath();ctx.arc(p[0],p[1],rad,0,6.2832);ctx.fill()}ctx.globalAlpha=1}
 function label(ctx,t,x,y,al){ctx.font='500 11px Inter,system-ui,sans-serif';ctx.fillStyle=T.muted;ctx.textAlign=al||'center';ctx.textBaseline='middle';ctx.fillText(t,x,y)}
 function battery(ctx,x,yc){
   ctx.fillStyle=T.surface;ctx.fillRect(x-14,yc-26,28,52);
-  ctx.strokeStyle=T.wire;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,yc-26);ctx.lineTo(x,yc-16);ctx.moveTo(x,yc+16);ctx.lineTo(x,yc+26);ctx.stroke();
-  ctx.strokeStyle=T.v;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x-13,yc-16);ctx.lineTo(x+13,yc-16);ctx.stroke();
-  ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(x-7,yc+12);ctx.lineTo(x+7,yc+12);ctx.stroke();
+  ctx.strokeStyle=T.wire;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,yc-26);ctx.lineTo(x,yc-15);ctx.moveTo(x,yc+16);ctx.lineTo(x,yc+26);ctx.stroke();
+  ctx.strokeStyle=T.v;ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(x-7,yc-12);ctx.lineTo(x+7,yc-12);ctx.stroke();
+  ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x-13,yc+16);ctx.lineTo(x+13,yc+16);ctx.stroke();
   ctx.font='700 13px Inter,system-ui,sans-serif';ctx.fillStyle=T.v;ctx.textAlign='left';ctx.textBaseline='middle';
-  ctx.fillText('+',x+18,yc-16);ctx.fillText('−',x+18,yc+12);
+  ctx.fillText('−',x+18,yc-12);ctx.fillText('+',x+18,yc+16);
 }
 
 /* ---------- 1. Legge di Ohm ---------- */
-var ohm={V:9,R:30,mode:'el',phase:0};
-var OP=mkPath([[40,40],[280,40],[280,200],[40,200]]);
+var ohm={V:9,R:30,mode:'el',open:false,flow:1,sw:0,t:0,focus:null};
+var EP=mkPath([[40,100],[40,40],[280,40],[280,200],[40,200],[40,140]]); /* percorso degli elettroni, lungo 800 */
+var RZ0=348,RZ1=412,N_EL=56;
+var els=[],atoms=[];
+for(var q=0;q<N_EL;q++)els.push({s:q*800/N_EL,l:(Math.random()-.5)*5,cool:0});
+[-10,0,10].forEach(function(dx){[96,108,120,132,144].forEach(function(y){atoms.push({x:280+dx,y:y,h:0})})});
+/* altezza (0..1) di un elettrone lungo il percorso, contata dalla batteria. f = quanto scorre (1 chiuso, 0 aperto) */
+function prof(sp,f){
+  if(sp<40)return sp/40;
+  if(sp<220)return 1;
+  if(sp<228)return 1-(1-f)*(sp-220)/8;
+  if(sp<388)return f;
+  if(sp<452)return f*(1-(sp-388)/64);
+  return 0;
+}
+function tOf(){return Math.log(ohm.R)/Math.LN10/3}
+function throatW(){return 3+11*(1-tOf())}
+function rnd(){return Math.random()*2-1}
+function ohmStep(dt){
+  ohm.t+=dt;
+  if(ohm.open)ohm.flow=Math.max(0,ohm.flow-dt/1.1);else ohm.flow=Math.min(1,ohm.flow+dt/0.35);
+  ohm.sw+=clamp((ohm.open?1:0)-ohm.sw,-dt*6,dt*6);
+  var vd=spd(ohm.V/ohm.R)*ohm.flow,sq=Math.sqrt(dt),el=ohm.mode==='el';
+  var zw=el?12.5:Math.max(0.8,throatW()/2-2.5),ra=1.8+3.2*tOf(),gap=1-ohm.flow;
+  atoms.forEach(function(a){a.h=Math.max(0,a.h-dt*1.6)});
+  els.forEach(function(e){
+    var inZ=e.s>=RZ0&&e.s<=RZ1;
+    e.s+=vd*dt+rnd()*(inZ?(el?55:30):16)*sq;
+    if(gap>0.01&&e.s>110&&e.s<180)e.s+=(176-e.s)*0.8*dt*gap;
+    e.l+=rnd()*(inZ?70:18)*sq-e.l*dt*4;
+    var lim=inZ?zw:3.4;e.l=clamp(e.l,-lim,lim);
+    if(e.s<0)e.s+=800;if(e.s>=800)e.s-=800;
+    if(el&&inZ&&dt>0){
+      e.cool-=dt;
+      if(e.cool<=0){
+        var p=EP.at(e.s),x=p[0]+p[2]*e.l,y=p[1]+p[3]*e.l;
+        for(var k=0;k<atoms.length;k++){var a=atoms[k];if(Math.hypot(a.x-x,a.y-y)<ra+2.6){a.h=Math.min(1,a.h+0.6);e.cool=0.18;e.l=clamp(e.l+(Math.random()<.5?-4:4),-lim,lim);e.s-=Math.random()*3;break}}
+      }
+    }
+  });
+}
+stepFns.push(ohmStep);
+
 function funnel(ctx,x,y0,y1,ho,hi,fill){var a=y0+22,b=y1-22;ctx.beginPath();ctx.moveTo(x-ho,y0);ctx.lineTo(x+ho,y0);ctx.lineTo(x+hi,a);ctx.lineTo(x+hi,b);ctx.lineTo(x+ho,y1);ctx.lineTo(x-ho,y1);ctx.lineTo(x-hi,b);ctx.lineTo(x-hi,a);ctx.closePath();ctx.fillStyle=fill;ctx.fill()}
-function drawOhm(ctx,dt){
-  var I=ohm.V/ohm.R,P=ohm.V*I;ohm.phase+=spd(I)*dt;
-  ctx.lineJoin='round';
-  if(ohm.mode==='el'){
-    ctx.strokeStyle=T.wire;ctx.lineWidth=3;ctx.strokeRect(40,40,240,160);
-    var g=clamp(Math.sqrt(P/40),0,1);
-    if(g>0.02){var gr=ctx.createRadialGradient(280,120,0,280,120,46);gr.addColorStop(0,rgba(T.r,g*0.6));gr.addColorStop(1,rgba(T.r,0));ctx.fillStyle=gr;ctx.fillRect(220,60,100,120)}
-    flow(ctx,OP,ohm.phase,T.i,3,I>0?1:0.25);
-    battery(ctx,40,120);
-    ctx.fillStyle=T.surface;ctx.fillRect(266,84,28,72);
-    ctx.strokeStyle=T.wire;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(280,84);ctx.lineTo(280,92);ctx.moveTo(280,148);ctx.lineTo(280,156);ctx.stroke();
-    ctx.strokeStyle=T.r;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(280,92);ctx.lineTo(271,97);ctx.lineTo(289,105);ctx.lineTo(271,113);ctx.lineTo(289,121);ctx.lineTo(271,129);ctx.lineTo(289,137);ctx.lineTo(280,143);ctx.lineTo(280,148);ctx.stroke();
-    label(ctx,'batteria',58,120+2,'left');
-    label(ctx,'resistenza',264,120,'right');
+function tx(ctx,t,x,y,col,al,font){ctx.font=font||'600 11px Inter,system-ui,sans-serif';ctx.fillStyle=col;ctx.textAlign=al||'center';ctx.textBaseline='middle';ctx.fillText(t,x,y)}
+function drawSwitch(ctx,el){
+  var o=ohm.sw;
+  ctx.fillStyle=T.surface;ctx.fillRect(142,24,36,32);
+  if(el){
+    ctx.fillStyle=T.wire;ctx.fillRect(138,38,8,4);ctx.fillRect(174,38,8,4);
+    ctx.fillStyle=T.fg;ctx.beginPath();ctx.arc(146,40,3.5,0,6.2832);ctx.arc(174,40,3.5,0,6.2832);ctx.fill();
+    var th=o*0.62;ctx.strokeStyle=T.fg;ctx.lineWidth=3;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(146,40);ctx.lineTo(146+28*Math.cos(th),40-28*Math.sin(th));ctx.stroke();ctx.lineCap='butt';
   }else{
-    ctx.strokeStyle=T.line;ctx.lineWidth=18;ctx.strokeRect(40,40,240,160);
-    ctx.strokeStyle=T.surface;ctx.lineWidth=14;ctx.strokeRect(40,40,240,160);
-    ctx.strokeStyle=rgba(T.v,0.2);ctx.strokeRect(40,40,240,160);
-    var t=Math.log(ohm.R)/Math.log(10)/3,wi=3+11*(1-t);
-    ctx.fillStyle=T.surface;ctx.fillRect(264,74,32,92);
-    funnel(ctx,280,80,160,9,wi/2+2,T.line);funnel(ctx,280,80,160,7,wi/2,T.surface);funnel(ctx,280,80,160,7,wi/2,rgba(T.v,0.2));
-    flow(ctx,OP,ohm.phase,T.v,2.4,I>0?0.95:0.25);
-    ctx.fillStyle=T.surface;ctx.fillRect(22,92,36,56);
-    ctx.beginPath();ctx.arc(40,120,19,0,6.2832);ctx.fillStyle=T.surface2;ctx.fill();ctx.strokeStyle=T.v;ctx.lineWidth=3;ctx.stroke();
-    ctx.lineWidth=3.5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(40,129);ctx.lineTo(40,111);ctx.moveTo(33,118);ctx.lineTo(40,110);ctx.lineTo(47,118);ctx.stroke();ctx.lineCap='butt';
-    label(ctx,'pompa',60,120,'left');label(ctx,'strettoia',264,120,'right');
+    ctx.fillStyle=T.line;ctx.strokeStyle=T.fg;ctx.lineWidth=1.8;
+    ctx.beginPath();ctx.moveTo(146,31);ctx.lineTo(146,49);ctx.lineTo(160,40);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.moveTo(174,31);ctx.lineTo(174,49);ctx.lineTo(160,40);ctx.closePath();ctx.fill();ctx.stroke();
+    if(o>0.3){ctx.fillStyle=T.fg;ctx.globalAlpha=Math.min(1,o);ctx.fillRect(157,29,6,22);ctx.globalAlpha=1}
+    var a=o*1.5708;ctx.strokeStyle=T.fg;ctx.lineWidth=3;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(160-9*Math.cos(a),24-9*Math.sin(a));ctx.lineTo(160+9*Math.cos(a),24+9*Math.sin(a));ctx.stroke();
+    ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(160,25);ctx.lineTo(160,36);ctx.stroke();ctx.lineCap='butt';
   }
 }
-var ohmC=makeCanvas($('#c-ohm'),drawOhm);
+function drawOhm(ctx){
+  var el=ohm.mode==='el',f=ohm.flow,V=ohm.V,Vn=clamp(V/12,0,1),Iv=V/ohm.R*f,Pv=V*Iv*f;
+  var g=clamp(Math.sqrt(Pv/40),0,1),t=tOf(),pulse=0.5+0.5*Math.sin(ohm.t*5),gap=1-f;
+  ctx.lineJoin='round';ctx.lineCap='butt';
+  /* tubo / filo */
+  ctx.strokeStyle=el?T.wire:T.line;ctx.lineWidth=el?16:18;ctx.strokeRect(40,40,240,160);
+  ctx.strokeStyle=T.surface;ctx.lineWidth=el?12:14;ctx.strokeRect(40,40,240,160);
+  /* colore = altezza dell'elettrone (pressione nell'acqua) */
+  ctx.lineWidth=el?12:14;
+  for(var s=0;s<760;s+=5){
+    if((s>166&&s<194)||(s>340&&s<420))continue;
+    var h=prof((s+40)%800,f)*Vn;if(h<0.02)continue;
+    var a=EP.at(s),b=EP.at(s+5);
+    ctx.strokeStyle=rgba(T.v,el?h*0.4:0.08+h*0.55);
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+  }
+  /* resistore */
+  if(el){
+    if(g>0.02){var gr=ctx.createRadialGradient(280,120,0,280,120,52);gr.addColorStop(0,rgba(T.r,g*0.55));gr.addColorStop(1,rgba(T.r,0));ctx.fillStyle=gr;ctx.fillRect(220,60,100,120)}
+    ctx.fillStyle=T.surface2;ctx.fillRect(262,84,36,72);ctx.strokeStyle=rgba(T.r,0.6);ctx.lineWidth=1.5;ctx.strokeRect(262,84,36,72);
+    var ra=1.8+3.2*t,vib=0.4+2.2*g;
+    atoms.forEach(function(a){
+      var hh=clamp(a.h+g*0.9,0,1),x=a.x+rnd()*vib*0.5,y=a.y+rnd()*vib*0.5;
+      ctx.beginPath();ctx.arc(x,y,ra,0,6.2832);ctx.fillStyle=T.muted;ctx.globalAlpha=0.85;ctx.fill();
+      ctx.globalAlpha=hh;ctx.fillStyle=T.r;ctx.fill();ctx.globalAlpha=1;
+    });
+  }else{
+    ctx.fillStyle=T.surface;ctx.fillRect(264,74,32,92);
+    var wi=throatW();funnel(ctx,280,80,160,9,wi/2+2,T.line);funnel(ctx,280,80,160,7,wi/2,T.surface);funnel(ctx,280,80,160,7,wi/2,rgba(T.v,0.08+0.5*Vn));
+  }
+  /* batteria / pompa */
+  if(el){
+    battery(ctx,40,120);
+  }else{
+    ctx.fillStyle=T.surface;ctx.fillRect(22,92,36,56);
+    ctx.beginPath();ctx.arc(40,120,19,0,6.2832);ctx.fillStyle=T.surface2;ctx.fill();ctx.strokeStyle=T.v;ctx.lineWidth=3;ctx.stroke();
+    ctx.lineCap='round';ctx.beginPath();ctx.moveTo(40,129);ctx.lineTo(40,111);ctx.moveTo(33,118);ctx.lineTo(40,110);ctx.lineTo(47,118);ctx.stroke();ctx.lineCap='butt';
+  }
+  /* elettroni / gocce */
+  els.forEach(function(e){
+    var p=EP.at(e.s),x=p[0]+p[2]*e.l,y=p[1]+p[3]*e.l;
+    ctx.beginPath();ctx.arc(x,y,el?2.7:2.2,0,6.2832);ctx.fillStyle=el?T.i:T.v;ctx.fill();
+    if(el){ctx.strokeStyle=T.surface;ctx.lineWidth=0.8;ctx.stroke()}
+  });
+  drawSwitch(ctx,el);
+  /* cariche accumulate al varco */
+  if(gap>0.05){
+    var al=clamp(gap*1.3,0,1);
+    ctx.globalAlpha=al;tx(ctx,el?'− − −':'· · ·',146,56,T.i,'right','700 13px Inter,system-ui,sans-serif');tx(ctx,el?'+ + +':'',174,56,T.r,'left','700 13px Inter,system-ui,sans-serif');
+    ctx.strokeStyle=T.v;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(146,68);ctx.lineTo(146,72);ctx.lineTo(174,72);ctx.lineTo(174,68);ctx.stroke();
+    tx(ctx,fV(V),160,82,T.v,'center','700 12px Inter,system-ui,sans-serif');ctx.globalAlpha=1;
+  }
+  /* etichette */
+  tx(ctx,el?'interruttore':'rubinetto',160,8,T.muted,'center','500 11px Inter,system-ui,sans-serif');
+  tx(ctx,el?'batteria':'pompa',60,120,T.muted,'left','500 11px Inter,system-ui,sans-serif');
+  tx(ctx,el?'resistore':'strettoia',270,76,T.muted,'right','500 11px Inter,system-ui,sans-serif');
+  tx(ctx,el?'← elettroni   ·   corrente convenzionale →':'← acqua',160,224,T.muted,'center','500 10px Inter,system-ui,sans-serif');
+  /* evidenziazioni delle spiegazioni */
+  if(ohm.focus){
+    var cx=40,cy=120,rr=34;
+    if(ohm.focus==='slow'){cx=280;cy=120;rr=46}
+    if(ohm.focus==='stop'){cx=160;cy=40;rr=24}
+    ctx.strokeStyle=rgba(T.v,0.35+0.55*pulse);ctx.lineWidth=2.5;ctx.setLineDash([5,4]);ctx.beginPath();ctx.arc(cx,cy,rr+pulse*3,0,6.2832);ctx.stroke();ctx.setLineDash([]);
+    if(ohm.focus==='push'&&V>0&&f>0.2){
+      ctx.strokeStyle=rgba(T.v,0.85);ctx.lineWidth=2.2;ctx.lineCap='round';
+      for(var k=0;k<4;k++){var x=62+((ohm.t*45+k*54)%216);if(x>134&&x<186)continue;ctx.beginPath();ctx.moveTo(x-3,28);ctx.lineTo(x+2,32);ctx.lineTo(x-3,36);ctx.stroke()}
+      ctx.lineCap='butt';tx(ctx,'spinta',100,20,T.v,'center','700 11px Inter,system-ui,sans-serif');
+    }
+    if(ohm.focus==='slow')tx(ctx,el?'urti = calore':'attrito',280,176,T.r,'center','700 11px Inter,system-ui,sans-serif');
+  }
+}
+makeCanvas($('#c-ohm'),drawOhm);
+
+/* montagna: altezza dell'elettrone lungo il circuito */
+var MS=[0,40,220,228,388,452,800],MX=[14,60,146,156,196,270,306];
+function mx(sp){for(var k=0;k<6;k++){if(sp<=MS[k+1])return MX[k]+(MX[k+1]-MX[k])*(sp-MS[k])/(MS[k+1]-MS[k])}return MX[6]}
+function drawMt(ctx){
+  var f=ohm.flow,Vn=clamp(ohm.V/12,0,1),Hp=ohm.V>0?10+34*Vn:0,base=74,el=ohm.mode==='el',pts=[],sp;
+  for(sp=0;sp<=800;sp+=4)pts.push([mx(sp),base-Hp*prof(sp,f)]);
+  ctx.beginPath();ctx.moveTo(14,base);pts.forEach(function(p){ctx.lineTo(p[0],p[1])});ctx.lineTo(306,base);ctx.closePath();ctx.fillStyle=rgba(T.v,0.14);ctx.fill();
+  ctx.strokeStyle=T.line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(14,base+0.5);ctx.lineTo(306,base+0.5);ctx.stroke();
+  ctx.strokeStyle=T.v;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.beginPath();pts.forEach(function(p,k){if(k)ctx.lineTo(p[0],p[1]);else ctx.moveTo(p[0],p[1])});ctx.stroke();
+  for(var k=0;k<N_EL;k+=5){var e=els[k],s2=(e.s+40)%800;ctx.beginPath();ctx.arc(mx(s2),base-Hp*prof(s2,f)-4,3,0,6.2832);ctx.fillStyle=el?T.i:T.v;ctx.fill();ctx.strokeStyle=T.surface;ctx.lineWidth=1;ctx.stroke()}
+  if(ohm.V>0)tx(ctx,'altezza = '+fV(ohm.V),62,14,T.v,'left','700 11px Inter,system-ui,sans-serif');
+  if(1-f>0.5)tx(ctx,el?'burrone!':'diga!',151,14,T.r,'center','700 11px Inter,system-ui,sans-serif');
+  tx(ctx,el?'funivia ↑':'pompa ↑',37,90,T.muted,'center','500 10px Inter,system-ui,sans-serif');
+  tx(ctx,'tratto piano',103,90,T.muted,'center','500 10px Inter,system-ui,sans-serif');
+  tx(ctx,el?'discesa ruvida':'strettoia',233,90,T.muted,'center','500 10px Inter,system-ui,sans-serif');
+}
+makeCanvas($('#c-mt'),drawMt,0.32);
+
+function caption(){
+  var V=ohm.V,R=ohm.R,Ic=V/R,el=ohm.mode==='el',n=nf(Ic*6.242,2),w=ohm.focus,s;
+  if(w==='push'){
+    if(V===0)return 'Con 0 V nessuno spinge. Gli elettroni si agitano a caso (agitazione termica) ma non vanno da nessuna parte. Alza la tensione.';
+    return el?'La batteria è una pompa chimica: strappa gli elettroni dal polo + e li ammassa sul −. Ammassati si respingono e scappano verso il + attraverso il filo. Questa spinta è la tensione: '+fV(V)+'. Nel filo restano agitati a caso, ma in media avanzano.'
+             :'La pompa spinge l\'acqua e crea pressione ('+fV(V)+'). L\'acqua va dalla zona ad alta pressione a quella a bassa pressione, come una palla che rotola in discesa. Il colore scuro del tubo mostra dove la pressione è alta.';
+  }
+  if(w==='slow'){
+    return el?'Nel resistore gli elettroni urtano gli atomi grigi. Ogni urto li frena e fa vibrare l\'atomo: è calore. Con '+fR(R)+' gli ostacoli sono '+(R<10?'pochi e piccoli':R<100?'medi':'grandi e fitti')+', quindi passano '+fA(Ic)+' (circa '+n+' miliardi di miliardi di elettroni al secondo). Resistenza doppia, urti doppi, corrente dimezzata: '+fA(Ic/2)+'.'
+             :'Nella strettoia l\'acqua si ammassa e sfrega contro le pareti, quindi passa meno acqua al secondo: '+fA(Ic)+'. Più stringi il tubo, meno ne passa. Lo sfregamento scalda.';
+  }
+  if(w==='stop'){
+    if(!ohm.open)return 'Riprova: apri l\'interruttore e guarda cosa succede agli elettroni davanti al varco.';
+    return el?'Il filo è interrotto. Gli elettroni davanti al varco si accumulano (−) e respingono quelli dietro, annullando la spinta. Dall\'altra parte restano troppo pochi (+). In un attimo si fermano. Guarda la montagna: tutto il dislivello ('+fV(V)+') è ora nel burrone dell\'interruttore e nel resistore non scende più nulla.'
+             :'Il rubinetto chiuso blocca l\'acqua. La pressione però resta tutta lì, davanti al rubinetto: è la tensione ai capi di un interruttore aperto. Pressione senza portata, tensione senza corrente.';
+  }
+  return ohm.open?'Interruttore aperto: nessun anello, nessuna corrente. Chiudilo per far ripartire gli elettroni.':
+    (V===0?'Tensione a zero: nessuna spinta, nessuna corrente. Muovi lo slider della tensione.':'Tocca un «Perché?» per vedere cosa succede nel circuito, oppure muovi gli slider. Con '+fV(V)+' e '+fR(R)+' passano '+fA(Ic)+'.');
+}
 function updOhm(){
-  var V=ohm.V,R=ohm.R,I=V/R,P=V*I;
+  var V=ohm.V,R=ohm.R,Ic=V/R,I=ohm.open?0:Ic,el=ohm.mode==='el';
   $('#o-v').textContent=fV(V);$('#o-r').textContent=fR(R);$('#o-i').textContent=fA(I);
   $('#o-vo').textContent=fV(V);$('#o-ro').textContent=fR(R);
-  $('#o-eq').innerHTML='<span class="cv">'+fV(V)+'</span> ÷ <span class="cr">'+fR(R)+'</span> = <span class="ci">'+fA(I)+'</span><small>corrente = tensione ÷ resistenza</small>';
-  $('#o-say').textContent=V===0?'Senza tensione nessuno spinge: la corrente è zero.':'Con '+fR(R)+' passano '+fA(I)+'. Raddoppia la resistenza e scendono a '+fA(I/2)+'. Raddoppia la tensione e salgono a '+fA(I*2)+'. La resistenza trasforma '+fW(P)+' in calore.';
+  $('#o-eq').innerHTML=ohm.open?'<span class="cv">'+fV(V)+'</span> ÷ <span class="cr">∞</span> = <span class="ci">0 A</span><small>circuito aperto: la resistenza è infinita e la corrente zero</small>':
+    '<span class="cv">'+fV(V)+'</span> ÷ <span class="cr">'+fR(R)+'</span> = <span class="ci">'+fA(I)+'</span><small>corrente = tensione ÷ resistenza</small>';
+  $('#o-cap').textContent=caption();
+  $('#sw-c').textContent=el?'Chiuso':'Rubinetto aperto';$('#sw-o').textContent=el?'Aperto':'Rubinetto chiuso';
+  $('#sw-c').setAttribute('aria-pressed',String(!ohm.open));$('#sw-o').setAttribute('aria-pressed',String(ohm.open));
+  document.querySelectorAll('[data-why]').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.why===ohm.focus))});
+  $('#mt-txt').textContent=el?'Immagina una montagna. La batteria è una funivia che porta gli elettroni in cima. Il resistore è una discesa ruvida: scendono frenati e si scaldano. I fili sono tratti piani. L\'altezza della montagna è la tensione.':
+    'La pompa porta l\'acqua in alto. La strettoia è la discesa ruvida dove si consuma tutto il dislivello. I tubi sono tratti piani. L\'altezza della montagna è la pressione, cioè la tensione.';
+  $('#m-el').setAttribute('aria-pressed',String(el));$('#m-wa').setAttribute('aria-pressed',String(!el));
 }
+function setOpen(o){ohm.open=o;if(reduce){ohm.flow=o?0:1;ohm.sw=o?1:0}updOhm()}
 $('#o-vin').addEventListener('input',function(e){ohm.V=+e.target.value;updOhm()});
 $('#o-rin').addEventListener('input',function(e){ohm.R=logv(+e.target.value,1,1000,2);updOhm()});
-function setMode(m){ohm.mode=m;$('#m-el').setAttribute('aria-pressed',m==='el');$('#m-wa').setAttribute('aria-pressed',m==='wa')}
-$('#m-el').onclick=function(){setMode('el')};$('#m-wa').onclick=function(){setMode('wa')};
+$('#m-el').onclick=function(){ohm.mode='el';updOhm()};$('#m-wa').onclick=function(){ohm.mode='wa';updOhm()};
+$('#sw-c').onclick=function(){setOpen(false)};$('#sw-o').onclick=function(){setOpen(true)};
+document.querySelectorAll('[data-why]').forEach(function(b){b.onclick=function(){
+  var w=b.dataset.why;ohm.focus=ohm.focus===w?null:w;
+  if(ohm.focus==='stop')setOpen(true);else if(ohm.focus&&ohm.open)setOpen(false);else updOhm();
+}});
+$('#c-ohm').addEventListener('click',function(e){var r=this.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*320,y=(e.clientY-r.top)/r.width*320;if(Math.abs(x-160)<28&&Math.abs(y-40)<28)setOpen(!ohm.open)});
 ohm.R=logv(477,1,1000,2);updOhm();
 
 /* ---------- 2. Serie e parallelo ---------- */
