@@ -35,6 +35,7 @@ button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:tra
 :focus-visible{outline:3px solid var(--v);outline-offset:2px}
 canvas{width:100%;height:auto;aspect-ratio:4/3;display:block}
 canvas.wide{aspect-ratio:10/3.2}
+canvas.a2{aspect-ratio:20/11}
 .chips.three{display:grid;grid-template-columns:repeat(3,1fr)}
 .chips.three .chip{padding:8px 6px;font-size:.85rem;line-height:1.2;min-height:52px}
 .say.cap{min-height:9.5em}
@@ -144,6 +145,7 @@ footer{color:var(--muted);font-size:.85rem}
   <p class="lead" style="margin-top:0">Tocca gli slider e guarda cosa succede. Ogni concetto ha un circuito che si muove, così le formule diventano cose che si vedono.</p>
   <nav class="index" aria-label="Sezioni">
     <button class="chip" data-go="s-ohm">Ohm</button>
+    <button class="chip" data-go="s-aw">Ampere e watt</button>
     <button class="chip" data-go="s-sp">Serie e parallelo</button>
     <button class="chip" data-go="s-pow">Potenza</button>
     <button class="chip" data-go="s-led">LED</button>
@@ -198,6 +200,32 @@ footer{color:var(--muted);font-size:.85rem}
     <canvas id="c-mt" class="wide" role="img" aria-label="Profilo di altezza lungo il circuito: salita nella batteria, discesa nel resistore"></canvas>
     <p class="hint" id="mt-txt"></p>
     <p class="hint">I puntini arancioni sono elettroni: escono dal polo − e vanno verso il +. Nei libri la corrente è disegnata al contrario, per convenzione storica.</p>
+  </div>
+</section>
+
+<section id="s-aw">
+  <h2>Ampere e watt, con le immagini</h2>
+  <p class="lead">Sono i due concetti che sembrano più astratti. Qui diventano un tornello che conta i passanti e una cascata che fa girare un mulino.</p>
+
+  <div class="card">
+    <h3>Ampere: quanti passano ogni secondo</h3>
+    <p class="hint">Ogni puntino è un blocco di carica da 1 coulomb, circa 6,24 miliardi di miliardi di elettroni. Gli ampere sono i puntini che attraversano il contatore in un secondo, come i litri al secondo di un rubinetto.</p>
+    <canvas id="c-aw" class="a2" role="img" aria-label="Un cavo con puntini di carica che attraversano un contatore"></canvas>
+    <label class="sl" style="--c:var(--i)"><span class="sl-top"><span>Corrente</span><b id="aw-ao"></b></span><input type="range" id="aw-a" min="1" max="20" step="1" value="3"></label>
+    <label class="sl" style="--c:var(--r)"><span class="sl-top"><span>Spessore del cavo (sezione)</span><b id="aw-so"></b></span><input type="range" id="aw-s" min="0" max="5" step="1" value="2"></label>
+    <p class="say" id="aw-say"></p>
+  </div>
+
+  <div class="card">
+    <h3>Watt: quanto lavoro fai ogni secondo</h3>
+    <p class="hint">Più la cascata è alta (volt) e più acqua cade (ampere), più forte gira il mulino. La potenza è l'area del rettangolo: altezza × portata.</p>
+    <canvas id="c-wt" role="img" aria-label="Una cascata che fa girare un mulino e un rettangolo che mostra volt per ampere"></canvas>
+    <label class="sl" style="--c:var(--v)"><span class="sl-top"><span>Altezza della cascata (tensione)</span><b id="wt-vo"></b></span><input type="range" id="wt-v" min="1" max="24" step="1" value="12"></label>
+    <label class="sl" style="--c:var(--i)"><span class="sl-top"><span>Acqua che cade (corrente)</span><b id="wt-ao"></b></span><input type="range" id="wt-a" min="0.5" max="5" step="0.5" value="2"></label>
+    <div class="eq" id="wt-eq"></div>
+    <p class="hint">Prova gli stessi watt con forme diverse. L'area non cambia, il mulino gira allo stesso modo.</p>
+    <div class="chips" id="wt-chips"></div>
+    <p class="say" id="wt-say"></p>
   </div>
 </section>
 
@@ -575,6 +603,122 @@ document.querySelectorAll('[data-why]').forEach(function(b){b.onclick=function()
 $('#c-ohm').addEventListener('click',function(e){var r=this.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*320,y=(e.clientY-r.top)/r.width*320;if(Math.abs(x-160)<28&&Math.abs(y-40)<28)setOpen(!ohm.open)});
 ohm.R=logv(477,1,1000,2);updOhm();
 
+/* ---------- Ampere e watt ---------- */
+var SEC=[0.5,1,1.5,2.5,4,6],CAP=[3,10,16,25,32,40];
+var aw={A:3,sec:2,dots:[],times:[],spawn:0,clock:0,flash:0};
+function tubeH(){return 16+11*Math.sqrt(SEC[aw.sec])}
+function awStep(dt){
+  var th=tubeH(),sp=110;
+  aw.clock+=dt;aw.flash=Math.max(0,aw.flash-dt*5);aw.spawn+=dt*aw.A;
+  while(aw.spawn>=1){aw.spawn-=1;aw.dots.push({x:-4-Math.random()*sp*dt,y:rnd()*(th/2-3.5)})}
+  for(var k=aw.dots.length-1;k>=0;k--){
+    var d=aw.dots[k],x0=d.x;d.x+=sp*dt;
+    if(x0<160&&d.x>=160){aw.times.push(aw.clock);aw.flash=1}
+    if(d.x>324)aw.dots.splice(k,1);
+  }
+  while(aw.times.length&&aw.times[0]<aw.clock-1)aw.times.shift();
+}
+stepFns.push(awStep);
+function drawAw(ctx){
+  var th=tubeH(),cy=92,top=cy-th/2,u=aw.A/CAP[aw.sec],col=u>1?T.r:u>0.7?T.i:T.wire,bad=u>1;
+  if(u>0.7){ctx.fillStyle=rgba(bad?T.r:T.i,clamp((u-0.7)*0.6,0,0.5)*(0.75+0.25*Math.sin(aw.clock*6)));ctx.fillRect(0,top-10,320,th+20)}
+  ctx.fillStyle=T.surface2;ctx.fillRect(8,top,304,th);
+  ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(8,top);ctx.lineTo(312,top);ctx.moveTo(8,top+th);ctx.lineTo(312,top+th);ctx.stroke();
+  ctx.fillStyle=T.i;
+  var lim=th/2-3.5;
+  if(reduce){
+    var gp=110/aw.A;for(var x=8,k=0;x<312;x+=gp,k++){ctx.beginPath();ctx.arc(x,cy+Math.sin(k*2.3)*lim,2.5,0,6.2832);ctx.fill()}
+  }else{
+    aw.dots.forEach(function(d){var y=cy+clamp(d.y+(bad?Math.sin(aw.clock*30+d.x*0.4)*2.2:0),-lim,lim);ctx.beginPath();ctx.arc(d.x,y,2.5,0,6.2832);ctx.fill()});
+  }
+  ctx.strokeStyle=rgba(T.fg,0.4+0.6*aw.flash);ctx.lineWidth=2.5;ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(160,top-14);ctx.lineTo(160,top+th+14);ctx.stroke();ctx.setLineDash([]);
+  tx(ctx,'contatore',160,top+th+26,T.muted,'center','500 11px Inter,system-ui,sans-serif');
+  var n=reduce?aw.A:aw.times.length;
+  tx(ctx,n+(n===1?' puntino':' puntini')+' al secondo',160,24,T.i,'center','700 15px Space Grotesk,Inter,system-ui,sans-serif');
+  tx(ctx,'passano il contatore = '+aw.A+' A',160,44,T.muted,'center','500 11px Inter,system-ui,sans-serif');
+  tx(ctx,'cavo da '+nf(SEC[aw.sec],2)+' mm² · regge '+CAP[aw.sec]+' A',160,156,bad?T.r:T.muted,'center','600 11px Inter,system-ui,sans-serif');
+  if(bad)tx(ctx,'scalda!',160,top-28<56?top-20:top-28,T.r,'center','700 12px Inter,system-ui,sans-serif');
+}
+makeCanvas($('#c-aw'),drawAw,0.55);
+function updAw(){
+  var cap=CAP[aw.sec],u=aw.A/cap,s=nf(SEC[aw.sec],2);
+  $('#aw-ao').textContent=aw.A+' A';$('#aw-so').textContent=s+' mm²';
+  $('#aw-say').textContent=u<=0.7?aw.A+' A in un cavo da '+s+' mm²: passano '+aw.A+' puntini al secondo e il tubo è largo abbastanza. Questo cavo regge fino a '+cap+' A.':
+    u<=1?'Sei al '+Math.round(u*100)+'% di ciò che il cavo regge ('+cap+' A). Funziona, ma si scalda.':
+    'Troppa corrente per un cavo da '+s+' mm² (regge '+cap+' A). I puntini si accalcano nel tubo stretto, si urtano e fanno calore. Il fusibile è un tratto di tubo volutamente più stretto, che cede prima del cavo.';
+}
+$('#aw-a').addEventListener('input',function(e){aw.A=+e.target.value;updAw()});
+$('#aw-s').addEventListener('input',function(e){aw.sec=+e.target.value;updAw()});
+updAw();
+
+/* cascata e mulino */
+var wt={V:12,A:2,drops:[],spawn:0,ang:0};
+function wtH(){return 60+110*(wt.V/24)}
+function wtStep(dt){
+  var vf=60*Math.sqrt(wt.V),P=wt.V*wt.A;
+  wt.ang+=9*Math.sqrt(P/120)*dt;wt.spawn+=dt*3*wt.A;
+  while(wt.spawn>=1){wt.spawn-=1;wt.drops.push({y:212-wtH()-Math.random()*vf*dt})}
+  for(var k=wt.drops.length-1;k>=0;k--){var d=wt.drops[k];d.y+=vf*dt;if(d.y>178)wt.drops.splice(k,1)}
+}
+stepFns.push(wtStep);
+function arrowV(ctx,x,y0,y1,col){ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,y0);ctx.lineTo(x,y1);ctx.moveTo(x-3,y0+5);ctx.lineTo(x,y0);ctx.lineTo(x+3,y0+5);ctx.moveTo(x-3,y1-5);ctx.lineTo(x,y1);ctx.lineTo(x+3,y1-5);ctx.stroke()}
+function drawWt(ctx){
+  var V=wt.V,A=wt.A,P=V*A,Hp=wtH(),yb=212-Hp,tt=yb-26,sw=2+9*A/5;
+  ctx.lineJoin='round';ctx.save();ctx.translate(14,0);
+  /* terra e torre */
+  ctx.strokeStyle=T.line;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(8,212);ctx.lineTo(176,212);ctx.stroke();
+  ctx.strokeStyle=T.wire;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(46,yb);ctx.lineTo(46,212);ctx.moveTo(94,yb);ctx.lineTo(94,212);ctx.stroke();
+  /* serbatoio */
+  ctx.fillStyle=rgba(T.v,0.3);ctx.fillRect(40,tt+4,60,22);ctx.strokeStyle=T.fg;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(40,tt);ctx.lineTo(40,yb);ctx.lineTo(100,yb);ctx.lineTo(100,tt);ctx.stroke();
+  /* getto e gocce */
+  ctx.fillStyle=rgba(T.v,0.22);ctx.fillRect(70-sw/2,yb,sw,176-yb);
+  ctx.fillStyle=T.v;
+  if(reduce){for(var y=yb+6;y<176;y+=Math.max(8,60/A)){ctx.fillRect(68.5,y,3,6)}}
+  else wt.drops.forEach(function(d){ctx.fillRect(68.5,d.y,3,6)});
+  /* ruota */
+  var cx=70,cy=194;
+  ctx.strokeStyle=T.wire;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(cx,cy,15,0,6.2832);ctx.stroke();
+  ctx.strokeStyle=T.p;ctx.lineWidth=3.5;ctx.lineCap='round';
+  for(var k=0;k<6;k++){var a=wt.ang+k*Math.PI/3;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*18,cy+Math.sin(a)*18);ctx.stroke()}
+  ctx.lineCap='butt';ctx.beginPath();ctx.arc(cx,cy,4,0,6.2832);ctx.fillStyle=T.fg;ctx.fill();
+  /* lampadina collegata */
+  var gl=clamp(Math.sqrt(P/60),0,1);
+  ctx.strokeStyle=T.wire;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(88,194);ctx.lineTo(130,194);ctx.stroke();
+  var lg=ctx.createRadialGradient(142,194,0,142,194,28);lg.addColorStop(0,rgba(T.i,0.15+gl*0.6));lg.addColorStop(1,rgba(T.i,0));ctx.fillStyle=lg;ctx.fillRect(112,164,60,60);
+  ctx.beginPath();ctx.arc(142,194,11,0,6.2832);ctx.fillStyle=rgba(T.i,0.15+gl*0.8);ctx.fill();ctx.strokeStyle=T.fg;ctx.lineWidth=2;ctx.stroke();
+  /* misure */
+  arrowV(ctx,30,yb,212,T.v);
+  tx(ctx,'altezza',26,(yb+212)/2-7,T.v,'right','600 11px Inter,system-ui,sans-serif');tx(ctx,fV(V),26,(yb+212)/2+7,T.v,'right','700 12px Inter,system-ui,sans-serif');
+  tx(ctx,'portata',80+sw/2,(yb+176)/2-7,T.i,'left','600 11px Inter,system-ui,sans-serif');tx(ctx,nf(A,1)+' A',80+sw/2,(yb+176)/2+7,T.i,'left','700 12px Inter,system-ui,sans-serif');
+  tx(ctx,'mulino',70,228,T.muted,'center','500 10px Inter,system-ui,sans-serif');tx(ctx,'lampadina',142,228,T.muted,'center','500 10px Inter,system-ui,sans-serif');
+  ctx.restore();
+  /* rettangolo altezza × portata */
+  var ox=204,oy=196,ww=A/5*100,hh=V/24*150;
+  ctx.strokeStyle=T.muted;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(ox,36);ctx.lineTo(ox,oy);ctx.lineTo(310,oy);ctx.stroke();
+  tx(ctx,'V ↑',ox-4,26,T.v,'left','700 11px Inter,system-ui,sans-serif');tx(ctx,'A →',312,oy+26,T.i,'right','700 11px Inter,system-ui,sans-serif');
+  ctx.fillStyle=rgba(T.p,0.28);ctx.fillRect(ox,oy-hh,ww,hh);ctx.strokeStyle=T.p;ctx.lineWidth=2;ctx.strokeRect(ox,oy-hh,ww,hh);
+  if(ww>46&&hh>22)tx(ctx,fW(P),ox+ww/2,oy-hh/2,T.p,'center','700 15px Space Grotesk,Inter,system-ui,sans-serif');
+  else tx(ctx,fW(P),ox+ww+6,oy-hh-2<40?40:oy-hh-2,T.p,'left','700 13px Space Grotesk,Inter,system-ui,sans-serif');
+  tx(ctx,nf(A,1)+' A',ox+ww,oy+9,T.i,'center','600 10px Inter,system-ui,sans-serif');
+  tx(ctx,V+' V',ox-4,oy-hh,T.v,'right','600 10px Inter,system-ui,sans-serif');
+}
+makeCanvas($('#c-wt'),drawWt);
+var WTP=[[12,1],[6,2],[3,4],[24,0.5]];
+var WEX=[[1,'un LED acceso'],[5,'una lampadina LED'],[15,'un caricatore di telefono'],[40,'un caricatore veloce'],[80,'un portatile in carica'],[999,'un televisore grande']];
+chipRow('#wt-chips',WTP.map(function(p){return [nf(p[0],0)+' V × '+nf(p[1],1)+' A',p]}),function(p){wt.V=p[0];wt.A=p[1];updWt()});
+function updWt(){
+  var V=wt.V,A=wt.A,P=V*A,ex='';
+  for(var k=0;k<WEX.length;k++){if(P<=WEX[k][0]){ex=WEX[k][1];break}}
+  $('#wt-vo').textContent=fV(V);$('#wt-ao').textContent=nf(A,1)+' A';
+  $('#wt-v').value=V;$('#wt-a').value=A;
+  $('#wt-eq').innerHTML='<span class="cv">'+fV(V)+'</span> × <span class="ci">'+nf(A,1)+' A</span> = <span class="cp">'+fW(P)+'</span><small>watt = volt × ampere</small>';
+  $('#wt-say').textContent='Fai '+fW(P)+': più o meno la potenza di '+ex+'. Tenuta per un\'ora sono '+nf(P,1)+' Wh. I watt sono la velocità, come i litri al secondo. I wattora sono il serbatoio riempito in un\'ora.';
+  document.querySelectorAll('#wt-chips .chip').forEach(function(c,k){c.setAttribute('aria-pressed',String(WTP[k][0]===V&&WTP[k][1]===A))});
+}
+$('#wt-v').addEventListener('input',function(e){wt.V=+e.target.value;updWt()});
+$('#wt-a').addEventListener('input',function(e){wt.A=+e.target.value;updWt()});
+updWt();
+
 /* ---------- 2. Serie e parallelo ---------- */
 var sp={mode:'s',R1:30,R2:30,on1:true,on2:true,V:9,ph:[0,0]};
 var SPS=[mkPath([[40,40],[280,40],[280,200],[40,200]])];
@@ -726,6 +870,7 @@ var QZ=[
  {q:'La tensione resta uguale ma raddoppi la resistenza. La corrente…',o:['Raddoppia','Resta uguale','Si dimezza'],a:2,e:'I = V ÷ R. Con R doppia, I diventa la metà.'},
  {q:'Due lampadine in serie: ne svito una. L\'altra…',o:['Si spegne','Brilla di più','Resta accesa'],a:0,e:'In serie c\'è una sola strada. Se si interrompe, la corrente si ferma per tutti.'},
  {q:'Due resistenze da 100 Ω in parallelo valgono…',o:['200 Ω','100 Ω','50 Ω'],a:2,e:'In parallelo la corrente ha due strade, quindi la resistenza totale scende: 100 ÷ 2 = 50 Ω.'},
+ {q:'6 V × 2 A e 12 V × 1 A: quale ha più potenza?',o:['Il primo','Il secondo','Sono uguali'],a:2,e:'Fanno entrambi 12 W. È l\'area del rettangolo altezza × portata: forma diversa, stessa area.'},
  {q:'Un dispositivo a 5 V assorbe 2 A. Quanta potenza usa?',o:['10 W','2,5 W','7 W'],a:0,e:'P = V × I = 5 V × 2 A = 10 W.'},
  {q:'Una batteria da 2000 mAh alimenta un carico da 100 mA. Quanto dura, in teoria?',o:['2 ore','20 ore','200 ore'],a:1,e:'2000 mAh ÷ 100 mA = 20 ore.'}
 ];
